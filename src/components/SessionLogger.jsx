@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { DEFAULT_REST } from '../lib/defaults';
 import { useNow, useRestTimer, useWakeLock } from '../lib/hooks';
 import { useStore } from '../lib/store';
-import { lastPerformances, mmss, pctChange, tonnage } from '../lib/training';
+import { bestOf, e1rm, lastPerformances, mmss } from '../lib/training';
 import ExerciseCard from './ExerciseCard';
 import ExercisePicker from './ExercisePicker';
 import RestTimer from './RestTimer';
@@ -50,13 +50,11 @@ export default function SessionLogger({ onExit, onFinished }) {
 
   const finish = () => {
     if (!confirming) return setConfirming(true);
-    // Tonnage de la séance vs la dernière séance du même type : le chiffre qui motive
-    const kg = items.reduce((a, it) => a + tonnage(it.sets), 0);
-    const prev = state.sessions.filter((s) => s.profileId === state.profileId && draft.templateId && s.templateId === draft.templateId).at(-1);
-    const prevKg = prev ? prev.items.reduce((a, it) => a + tonnage(it.sets), 0) : 0;
+    // Records de force : exercices dont la meilleure série (1RM estimé) bat celle de la dernière fois
+    const records = items.filter((it) => it.sets.length && last[it.exerciseId] && e1rm(bestOf(it.sets)) > e1rm(bestOf(last[it.exerciseId].sets)) + 0.05).length;
     timer.stop();
     finishSession();
-    onFinished({ sets: total, kg, pct: pctChange(kg, prevKg) });
+    onFinished({ sets: total, records });
   };
 
   return (

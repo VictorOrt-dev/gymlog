@@ -77,42 +77,42 @@ export function ago(ts) {
   return new Date(ts).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
 }
 
+/** Séries de travail : RIR ≤ 3. Une série à 5 reps de l'échec, c'est de l'échauffement. */
+export const workSets = (sets) => sets.filter((s) => s.rir == null || s.rir <= 3);
+
+/** La meilleure série d'une liste, au sens du 1RM estimé. */
+export const bestOf = (sets) => sets.reduce((a, b) => (e1rm(b) > e1rm(a) ? b : a));
+
+export const METRICS = {
+  best: { label: 'Force', short: '1RM estimé', help: 'Ta meilleure série convertie en 1RM estimé : le poids que tu pourrais soulever une seule fois. Le vrai thermomètre de ta force.' },
+  effective: { label: 'Tonnage effectif', short: 'Tonnage effectif', help: 'Poids × reps des seules séries de travail (RIR ≤ 3). Les séries trop faciles ne gonflent pas le chiffre.' },
+};
+
 /**
- * Série « une valeur par séance » pour les graphiques de tonnage.
- * Sans exercice : tonnage total de chaque séance. Avec : tonnage de l'exercice (ou reps au poids du corps).
+ * Une valeur par séance pour un exercice.
+ * best      → 1RM estimé de la meilleure série (reps max au poids du corps)
+ * effective → tonnage des séries RIR ≤ 3 (reps des séries de travail au poids du corps)
  */
-export function seriesFor(sessions, exerciseId = null) {
-  if (!exerciseId) {
-    return {
-      unit: 'kg',
-      bw: false,
-      global: true,
-      points: sessions.map((s) => ({ at: s.startedAt, value: s.items.reduce((a, it) => a + tonnage(it.sets), 0), session: s })),
-    };
-  }
+export function seriesFor(sessions, exerciseId, metric = 'best') {
   const pts = [];
   for (const s of sessions) {
     const it = s.items.find((i) => i.exerciseId === exerciseId);
     if (it?.sets.length) pts.push({ at: s.startedAt, sets: it.sets, session: s });
   }
   const bw = isBodyweight(pts.flatMap((p) => p.sets));
-  return { unit: bw ? 'reps' : 'kg', bw, points: pts.map((p) => ({ ...p, value: bw ? totalReps(p.sets) : tonnage(p.sets) })) };
+  const value = (sets) => {
+    if (metric === 'effective') return bw ? totalReps(workSets(sets)) : Math.round(tonnage(workSets(sets)));
+    return bw ? Math.max(...sets.map((x) => x.r)) : Math.round(e1rm(bestOf(sets)) * 2) / 2;
+  };
+  return {
+    bw,
+    unit: bw ? 'reps' : 'kg',
+    label: bw ? (metric === 'effective' ? 'Reps de travail' : 'Reps max') : METRICS[metric].label,
+    points: pts.map((p) => ({ ...p, x: p.at, value: value(p.sets), y: value(p.sets), best: bestOf(p.sets) })),
+  };
 }
 
-/**
- * Le point de comparaison d'une séance : la précédente pour un exercice,
- * la dernière séance DU MÊME TYPE pour le tonnage global (un Push se compare à un Push, pas à un Legs).
- */
-export function previousOf(series, point) {
-  const pts = series.points;
-  for (let j = pts.indexOf(point) - 1; j >= 0; j--) {
-    if (!series.global) return pts[j];
-    const a = pts[j].session;
-    const b = point.session;
-    if (b.templateId ? a.templateId === b.templateId : a.name === b.name) return pts[j];
-  }
-  return null;
-}
+export const previousOf = (series, point) => series.points[series.points.indexOf(point) - 1] ?? null;
 
 /** Variation en % par rapport à la séance précédente (null s'il n'y en a pas). */
 export const pctChange = (cur, prev) => (prev > 0 ? Math.round(((cur - prev) / prev) * 100) : null);

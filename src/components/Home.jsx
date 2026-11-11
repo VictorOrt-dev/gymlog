@@ -7,7 +7,7 @@ import SessionDetail from './SessionDetail';
 import Sheet from './Sheet';
 import SwipeRow from './SwipeRow';
 import TemplateEditor from './TemplateEditor';
-import TonnageDetail from './TonnageDetail';
+import ProgressDetail from './ProgressDetail';
 import { useToast } from './Toast';
 import { Check, Plus } from './Icons';
 import { Avatar, Group, LargeTitle, Page, PlayButton, PrimaryButton } from './ui';
@@ -55,7 +55,7 @@ export default function Home({ onOpenSession }) {
   const [profilesOpen, setProfilesOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [tonnageOf, setTonnageOf] = useState(undefined); // undefined = fermé, null = toutes les séances, id = un exercice
+  const [progressOf, setProgressOf] = useState(null); // id de l'exercice dont on regarde la progression
 
   const today = week.find((d) => d.isToday);
   const todayTpl = tplById[plan[today.i]];
@@ -162,8 +162,8 @@ export default function Home({ onOpenSession }) {
         </div>
       </Group>
 
-      {/* 3. Progression : le tonnage, cliquable */}
-      <ProgressSection onOpen={setTonnageOf} />
+      {/* 3. Progression : un graphique par exercice, cliquable */}
+      <ProgressSection onOpen={setProgressOf} />
 
       {/* 4. Mes séances : démarrer, modifier, glisser pour supprimer */}
       <Group
@@ -245,7 +245,7 @@ export default function Home({ onOpenSession }) {
       <TemplateEditor template={templates.find((t) => t.id === editingId)} onClose={() => setEditingId(null)} />
       <SessionDetail session={mine.find((s) => s.id === detailId)} onClose={() => setDetailId(null)} />
       <ProfileSheet open={profilesOpen} onClose={() => setProfilesOpen(false)} />
-      <TonnageDetail exerciseId={tonnageOf} onClose={() => setTonnageOf(undefined)} />
+      <ProgressDetail exerciseId={progressOf} onClose={() => setProgressOf(null)} />
     </Page>
   );
 }

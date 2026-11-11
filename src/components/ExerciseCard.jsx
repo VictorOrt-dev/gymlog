@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ago, fmtInt, fmtKg, fmtSet, isBodyweight, summarize, target, tonnage, totalReps, trend } from '../lib/training';
+import { ago, fmtInt, fmtKg, fmtSet, isBodyweight, summarize, target, tonnage, totalReps, trend, workSets } from '../lib/training';
 import Stepper from './Stepper';
 import { Check } from './Icons';
 
@@ -67,10 +67,11 @@ export default function ExerciseCard({ exercise, item, prev, open, onToggle, onA
   const rows = Math.max(n + 1, prevSets.length);
   const nextRef = prevSets[n];
 
-  // Tonnage de l'exercice : aujourd'hui vs la dernière fois (en reps au poids du corps)
+  // Tonnage effectif (séries de travail RIR ≤ 3) : aujourd'hui vs la dernière fois. Reps au poids du corps.
   const bw = isBodyweight([...sets, ...prevSets]);
-  const done = bw ? totalReps(sets) : tonnage(sets);
-  const goalTotal = bw ? totalReps(prevSets) : tonnage(prevSets);
+  const measure = (list) => (bw ? totalReps(workSets(list)) : tonnage(workSets(list)));
+  const done = measure(sets);
+  const goalTotal = measure(prevSets);
 
   return (
     <section ref={ref} className="scroll-mt-20 overflow-hidden rounded-3xl bg-card">
@@ -154,11 +155,11 @@ export default function ExerciseCard({ exercise, item, prev, open, onToggle, onA
             })}
           </div>
 
-          {/* Tonnage live : la jauge se remplit série après série jusqu'au total de la dernière fois */}
+          {/* Jauge : le tonnage effectif se remplit série après série jusqu'au total de la dernière fois */}
           {goalTotal > 0 && (
             <div className="mt-2 px-1">
               <div className="flex items-baseline justify-between gap-2 text-[13px]">
-                <span className="font-medium text-muted">{bw ? 'Reps totales' : 'Tonnage'}</span>
+                <span className="font-medium text-muted">{bw ? 'Reps de travail' : 'Tonnage effectif'}</span>
                 <span className="font-num tabular-nums">
                   {done > goalTotal && <span className="text-pink">▲ </span>}
                   <span className="font-semibold text-white">{fmtInt(done)}</span>

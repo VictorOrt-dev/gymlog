@@ -3,7 +3,6 @@ import Home from './components/Home';
 import SessionLogger from './components/SessionLogger';
 import { ToastProvider, useToast } from './components/Toast';
 import { StoreProvider, useStore } from './lib/store';
-import { fmtInt } from './lib/training';
 
 export default function App() {
   return (
@@ -30,11 +29,10 @@ function Shell() {
     return (
       <SessionLogger
         onExit={() => setInSession(false)}
-        onFinished={({ sets, kg, pct }) => {
+        onFinished={({ sets, records }) => {
           setInSession(false);
           if (!sets) return notify('Séance vide abandonnée');
-          const change = pct == null ? '' : pct > 0 ? ` · ▲ +${pct} %` : pct < 0 ? ` · ▼ ${pct} %` : ' · =';
-          notify(kg ? `Bravo · ${fmtInt(kg)} kg soulevés${change}` : `Séance enregistrée · ${sets} série${sets > 1 ? 's' : ''}`);
+          notify(records ? `Bravo · ${records} record${records > 1 ? 's' : ''} de force ▲` : `Séance enregistrée · ${sets} série${sets > 1 ? 's' : ''}`);
         }}
       />
     );

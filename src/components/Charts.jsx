@@ -32,13 +32,6 @@ export function niceTicks(min, max, count = 3) {
   return { lo, hi: hi === lo ? lo + step : hi, ticks };
 }
 
-/** Colonne à bout arrondi (4px), carrée sur la ligne de base. */
-const barPath = (x, y, w, h, r) => {
-  r = Math.min(r, h, w / 2);
-  return `M${x},${y + h}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h}Z`;
-};
-
-const fmtTick = (v) => (v >= 10000 ? `${round(v / 1000)} k` : Math.round(v).toLocaleString('fr-FR'));
 const fmtShort = (ts) => new Date(ts).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
 
 /** iOS segmented control. */
@@ -60,53 +53,38 @@ export function Segmented({ options, value, onChange, label, size = 'h-9 text-[1
   );
 }
 
-/**
- * Mini-colonnes pour une carte : l'historique en gris, la dernière séance en rose.
- * Pas d'axe ni de valeur : le chiffre est affiché en gros juste au-dessus.
- */
-export function Sparkbars({ values, height = 40, className = '' }) {
-  const [ref, w] = useWidth();
-  const max = Math.max(1, ...values);
-  const slot = values.length ? w / values.length : 0;
-  const bw = Math.max(2, Math.min(14, slot - 3));
-  return (
-    <div ref={ref} className={className} aria-hidden="true">
-      {w > 0 && (
-        <svg width={w} height={height}>
-          {values.map((v, i) => {
-            const h = Math.max(v > 0 ? 3 : 0, (v / max) * (height - 2));
-            return h > 0 && <path key={i} d={barPath(i * slot + (slot - bw) / 2, height - h, bw, h, 2)} fill={i === values.length - 1 ? 'var(--color-pink)' : 'var(--color-faint)'} />;
-          })}
-        </svg>
-      )}
-    </div>
-  );
-}
 
-/**
- * Colonnes cliquables : une colonne = une séance.
- * Toucher (ou survoler) une colonne la sélectionne ; la valeur s'affiche au-dessus et en gros dans l'en-tête.
- */
-export function Columns({ points, selected, onSelect, height = 220, label }) {
+const DAY = 864e5;
+const fmtDate = fmtShort;
+
+/** Courbe d'un exercice : trait 2px, voile léger, point final cerclé, réticule qui suit le doigt. */
+export function LineChart({ points, active, onActive, format, label }) {
   const [ref, w] = useWidth();
-  const pad = { l: 2, r: 46, t: 26, b: 24 };
-  const n = points.length;
-  const { hi, ticks } = niceTicks(0, Math.max(1, ...points.map((p) => p.value)), 3);
+  const H = 200;
+  const pad = { l: 6, r: 46, t: 14, b: 26 };
+  const ys = points.map((p) => p.y);
+  const { lo, hi, ticks } = niceTicks(Math.min(...ys), Math.max(...ys), 3);
+  let x0 = points[0].x;
+  let x1 = points.at(-1).x;
+  if (x1 === x0) {
+    x0 -= DAY;
+    x1 += DAY;
+  }
   const iw = Math.max(1, w - pad.l - pad.r);
-  const ih = height - pad.t - pad.b;
-  const slot = iw / Math.max(1, n);
-  const bw = Math.max(1.5, Math.min(24, slot * 0.62, slot - 2));
-  const sy = (v) => pad.t + (1 - v / hi) * ih;
-  const a = selected ?? n - 1;
+  const ih = H - pad.t - pad.b;
+  const sx = (x) => pad.l + ((x - x0) / (x1 - x0)) * iw;
+  const sy = (y) => pad.t + (1 - (y - lo) / (hi - lo)) * ih;
+  const line = points.map((p, i) => `${i ? 'L' : 'M'}${sx(p.x)},${sy(p.y)}`).join('');
+  const area = `${line}L${sx(points.at(-1).x)},${pad.t + ih}L${sx(points[0].x)},${pad.t + ih}Z`;
+  const a = active ?? points.length - 1;
 
-  // L'étiquette de valeur ne sort jamais du graphique : alignée sur la colonne près des bords.
-  const cx = pad.l + a * slot + slot / 2;
-  const labelAnchor = cx < pad.l + 28 ? 'start' : cx > pad.l + iw - 28 ? 'end' : 'middle';
-  const labelX = labelAnchor === 'start' ? Math.max(pad.l, cx - bw / 2) : labelAnchor === 'end' ? Math.min(pad.l + iw, cx + bw / 2) : cx;
-
-  const indexAt = (clientX) => {
-    const px = clientX - ref.current.getBoundingClientRect().left - pad.l;
-    return Math.max(0, Math.min(n - 1, Math.floor(px / slot)));
+  const nearest = (clientX) => {
+    const px = clientX - ref.current.getBoundingClientRect().left;
+    let best = 0;
+    points.forEach((p, i) => {
+      if (Math.abs(sx(p.x) - px) < Math.abs(sx(points[best].x) - px)) best = i;
+    });
+    return best;
   };
 
   return (
@@ -115,57 +93,67 @@ export function Columns({ points, selected, onSelect, height = 220, label }) {
       tabIndex={0}
       role="img"
       aria-label={label}
-      onPointerDown={(e) => onSelect(indexAt(e.clientX))}
-      onPointerMove={(e) => (e.pointerType === 'mouse' || e.buttons) && onSelect(indexAt(e.clientX))}
-      onPointerLeave={(e) => e.pointerType === 'mouse' && onSelect(null)}
+      onPointerDown={(e) => onActive(nearest(e.clientX))}
+      onPointerMove={(e) => (e.pointerType === 'mouse' || e.buttons) && onActive(nearest(e.clientX))}
+      onPointerLeave={(e) => e.pointerType === 'mouse' && onActive(null)}
       onKeyDown={(e) => {
-        if (e.key === 'ArrowLeft') onSelect(Math.max(0, a - 1));
-        if (e.key === 'ArrowRight') onSelect(Math.min(n - 1, a + 1));
-        if (e.key === 'Escape') onSelect(null);
+        if (e.key === 'ArrowLeft') onActive(Math.max(0, a - 1));
+        if (e.key === 'ArrowRight') onActive(Math.min(points.length - 1, a + 1));
+        if (e.key === 'Escape') onActive(null);
       }}
-      className="cursor-pointer touch-pan-y select-none rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-pink/60"
+      className="touch-pan-y select-none rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-pink/60"
     >
-      {w > 0 && n > 0 && (
-        <svg width={w} height={height}>
+      {w > 0 && (
+        <svg width={w} height={H}>
+          <defs>
+            <linearGradient id="progress-area" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0" stopColor="var(--color-pink)" stopOpacity="0.16" />
+              <stop offset="1" stopColor="var(--color-pink)" stopOpacity="0" />
+            </linearGradient>
+          </defs>
           {ticks.map((t) => (
             <g key={t}>
               <line x1={pad.l} x2={pad.l + iw} y1={sy(t)} y2={sy(t)} stroke="var(--color-line)" strokeWidth={1} />
               <text x={pad.l + iw + 8} y={sy(t)} dy="0.35em" className="fill-muted text-[11px] tabular-nums">
-                {fmtTick(t)}
+                {format(t)}
               </text>
             </g>
           ))}
-          {points.map((p, i) => {
-            const x = pad.l + i * slot + (slot - bw) / 2;
-            const y = sy(p.value);
-            return (
-              p.value > 0 && (
-                <path
-                  key={i}
-                  d={barPath(x, y, bw, pad.t + ih - y, Math.min(4, bw / 2))}
-                  fill="var(--color-pink)"
-                  opacity={selected == null || i === a ? 1 : 0.4}
-                  className="transition-opacity duration-150"
-                />
-              )
-            );
-          })}
-          <text
-            x={labelX}
-            y={sy(points[a].value) - 8}
-            textAnchor={labelAnchor}
-            className="fill-white text-[12px] font-semibold"
-          >
-            {Math.round(points[a].value).toLocaleString('fr-FR')}
+          {points.length > 1 && <path d={area} fill="url(#progress-area)" />}
+          <path d={line} fill="none" stroke="var(--color-pink)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+          {active != null && <line x1={sx(points[a].x)} x2={sx(points[a].x)} y1={pad.t} y2={pad.t + ih} stroke="var(--color-muted)" strokeWidth={1} />}
+          {points.length <= 16 &&
+            points.map((p, i) => i !== a && <circle key={i} cx={sx(p.x)} cy={sy(p.y)} r={4} fill="var(--color-pink)" stroke="var(--color-card)" strokeWidth={2} />)}
+          <circle cx={sx(points[a].x)} cy={sy(points[a].y)} r={6} fill="var(--color-pink)" stroke="var(--color-card)" strokeWidth={2.5} />
+          <text x={sx(points[0].x)} y={H - 7} textAnchor={points.length > 1 ? 'start' : 'middle'} className="fill-muted text-[11px]">
+            {fmtDate(points[0].x)}
           </text>
-          <text x={pad.l} y={height - 7} className="fill-muted text-[11px]">
-            {fmtShort(points[0].at)}
-          </text>
-          {n > 1 && (
-            <text x={pad.l + iw} y={height - 7} textAnchor="end" className="fill-muted text-[11px]">
-              {fmtShort(points.at(-1).at)}
+          {points.length > 1 && (
+            <text x={sx(points.at(-1).x)} y={H - 7} textAnchor="end" className="fill-muted text-[11px]">
+              {fmtDate(points.at(-1).x)}
             </text>
           )}
+        </svg>
+      )}
+    </div>
+  );
+}
+
+/** Mini-courbe pour une carte : trait 2px rose, point final cerclé. Pas d'axe : le chiffre est au-dessus. */
+export function Sparkline({ values, height = 36, className = '' }) {
+  const [ref, w] = useWidth();
+  const lo = Math.min(...values);
+  const hi = Math.max(...values);
+  const pad = 5;
+  const sx = (i) => (values.length < 2 ? w / 2 : pad + (i / (values.length - 1)) * (w - 2 * pad));
+  const sy = (v) => (hi === lo ? height / 2 : pad + (1 - (v - lo) / (hi - lo)) * (height - 2 * pad));
+  const d = values.map((v, i) => `${i ? 'L' : 'M'}${sx(i)},${sy(v)}`).join('');
+  return (
+    <div ref={ref} className={className} aria-hidden="true">
+      {w > 0 && values.length > 0 && (
+        <svg width={w} height={height}>
+          <path d={d} fill="none" stroke="var(--color-pink)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+          <circle cx={sx(values.length - 1)} cy={sy(values.at(-1))} r={4} fill="var(--color-pink)" stroke="var(--color-card)" strokeWidth={2} />
         </svg>
       )}
     </div>

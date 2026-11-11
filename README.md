@@ -8,18 +8,18 @@ Le carnet de muscu qui ne te ralentit pas. Pensé pour la salle : mains pleines 
 
 1. **La séance du jour** en un bouton (« Commencer Pull »), ou « Reprendre » si une séance est en cours.
 2. **Ta semaine** : séances faites, prévues, jours de repos. « Modifier » pour changer le planning.
-3. **Ta progression** : le tonnage de chaque séance et de tes exercices principaux, en mini-graphiques. **Touche une carte** pour ouvrir le détail : tonnage séance par séance (touche une colonne pour la lire), records, et la liste de toutes tes séances, chacune consultable.
+3. **Ta progression** : une carte par exercice avec sa **force** (1RM estimé de ta meilleure série) et sa mini-courbe. **Touche une carte** pour la vue dédiée : courbe semaine après semaine (glisse le doigt pour lire chaque séance), bascule vers le **tonnage effectif**, records, et chaque séance consultable.
 4. **Tes séances** (Push, Pull, Legs, Upper, Lower, Full body…) : ▶ pour démarrer, toucher pour modifier, **glisser vers la gauche pour supprimer** (avec « Annuler »). « Créer une séance » : vide ou depuis un modèle.
 
 Pendant la séance, tout est sur la carte de l'exercice :
 
 - **La semaine dernière, côte à côte** : chaque série d'aujourd'hui en face de la même série de la dernière fois (poids × reps · RIR). La ligne « À battre » montre exactement quoi dépasser.
-- **Jauge de tonnage** : elle se remplit série après série jusqu'au total de la dernière fois (« 580 / 1 120 kg »).
+- **Jauge de tonnage effectif** : elle se remplit série après série (séries RIR ≤ 3 uniquement) jusqu'au total de la dernière fois (« 580 / 1 120 kg »).
 - **Objectif pré-rempli** depuis ta dernière perf et ton RIR : séance faite comme prévu = un seul tap sur Valider.
 - **Le repos démarre tout seul** à chaque série validée. Bip et vibration à la fin, durée mémorisée par exercice.
 - **91 exercices** rangés par muscle ; tu crées les tiens en tapant leur nom.
 
-À la fin : « Bravo · 4 230 kg soulevés · ▲ +6 % » (comparé à ta dernière séance du même type).
+À la fin : « Bravo · 2 records de force ▲ » quand ta meilleure série bat celle de la dernière fois.
 
 Et aussi : **plusieurs profils** pour les potes, sauvegarde à chaque tap, écran qui reste allumé pendant la séance, fonctionne hors-ligne, export/import JSON (derrière l'avatar).
 
@@ -56,19 +56,22 @@ src/
    ├─ Home.jsx              ★ l'écran principal (séance du jour, semaine, progression, séances)
    ├─ SessionLogger.jsx     ★ la séance en cours (95 % du temps)
    ├─ ExerciseCard.jsx      ★ saisie + semaine dernière côte à côte + jauge de tonnage
-   ├─ ProgressSection.jsx   cartes de tonnage cliquables
-   ├─ TonnageDetail.jsx     vue détaillée : colonnes, records, séance par séance
+   ├─ ProgressSection.jsx   une carte de force par exercice, cliquable
+   ├─ ProgressDetail.jsx    vue dédiée : courbe, force / tonnage effectif, records
    ├─ Charts.jsx            graphiques SVG faits main (aucune librairie)
    ├─ SwipeRow.jsx          glisser pour supprimer
    ├─ ExercisePicker · TemplateEditor · SessionDetail · ProfileSheet
    └─ RestTimer · Stepper · Toast · Sheet · ui · Icons
 ```
 
-## Le tonnage
+## Les indicateurs (pas de piège du tonnage brut)
 
-**Tonnage = poids × reps, additionné sur toutes les séries.** C'est ton travail total : s'il monte de semaine en semaine, tu progresses. Au poids du corps (tractions, dips à vide), l'app compte les reps.
+Le tonnage brut ment : 10 séries bâclées à 40 kg « battent » 3 vraies séries lourdes. L'app suit donc :
 
-Un tonnage se compare à une séance du même type : un Push à un Push, jamais à un Legs.
+- **La force** (indicateur principal) : ta meilleure série de la séance, convertie en **1RM estimé** (formule d'Epley). Elle ne monte que si tu deviens plus fort.
+- **Le tonnage effectif** : poids × reps des **seules séries de travail (RIR ≤ 3)**. Les séries trop faciles ne gonflent pas le chiffre.
+
+Au poids du corps (tractions, dips à vide), on suit les reps.
 
 ## La règle de progression
 

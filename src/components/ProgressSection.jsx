@@ -1,37 +1,34 @@
 import { useMemo, useState } from 'react';
 import { useStore } from '../lib/store';
-import { fmtInt, pctChange, previousOf, seriesFor } from '../lib/training';
-import { Sparkbars } from './Charts';
-import { Change } from './TonnageDetail';
+import { fmtSet, pctChange, previousOf, seriesFor } from '../lib/training';
+import { Sparkline } from './Charts';
+import { Change } from './ProgressDetail';
 import { ChevronRight } from './Icons';
 
-const LAST = 8; // séances visibles dans les mini-graphiques
+const LAST = 8; // séances visibles dans les mini-courbes
 
-/** Une carte cliquable : titre, dernière valeur en gros, variation, mini-colonnes. */
-function Tile({ title, series, onClick, big = false }) {
-  const pts = series.points;
-  const last = pts.at(-1);
-  const prev = previousOf(series, last);
+/** Une carte par exercice : 1RM estimé de la dernière séance, variation, mini-courbe. Tap → vue dédiée. */
+function Tile({ title, series, onClick }) {
+  const last = series.points.at(-1);
   return (
-    <button onClick={onClick} className={`flex w-full flex-col bg-card text-left active:opacity-70 ${big ? 'rounded-3xl p-5' : 'rounded-2xl p-3.5'}`}>
+    <button onClick={onClick} className="flex w-full flex-col rounded-2xl bg-card p-3.5 text-left active:opacity-70">
       <span className="flex w-full items-start justify-between gap-2">
-        <span className={big ? 'text-[13px] font-semibold text-muted' : 'line-clamp-2 min-h-[2.5em] text-[15px] font-semibold leading-tight'}>{title}</span>
+        <span className="line-clamp-2 min-h-[2.5em] text-[15px] font-semibold leading-tight">{title}</span>
         <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-faint" />
       </span>
-      <span className={`flex items-baseline gap-1 ${big ? 'mt-1' : 'mt-2'}`}>
-        <span className={`font-num font-bold leading-none ${big ? 'text-[34px]' : 'text-[20px]'}`}>{fmtInt(last.value)}</span>
-        <span className={`font-semibold text-muted ${big ? 'text-[17px]' : 'text-[13px]'}`}>{series.unit}</span>
+      <span className="mt-2 flex items-baseline gap-1">
+        <span className="font-num text-[22px] font-bold leading-none">{last.value.toLocaleString('fr-FR', { maximumFractionDigits: 1 })}</span>
+        <span className="text-[13px] font-semibold text-muted">{series.unit}</span>
       </span>
-      <span className={`mt-1 text-muted ${big ? 'text-[15px]' : 'text-[13px]'}`}>
-        {big && <>{last.session.name} · </>}
-        <Change pct={pctChange(last.value, prev?.value)} />
+      <span className="mt-1 truncate text-[13px] text-muted">
+        <Change pct={pctChange(last.value, previousOf(series, last)?.value)} /> · {fmtSet(last.best)}
       </span>
-      <Sparkbars values={pts.slice(-LAST).map((p) => p.value)} height={big ? 56 : 32} className={big ? 'mt-4' : 'mt-3'} />
+      <Sparkline values={series.points.slice(-LAST).map((p) => p.value)} height={34} className="mt-3" />
     </button>
   );
 }
 
-/** Section « Progression » de l'écran principal : le tonnage en un coup d'œil, le détail au clic. */
+/** Section « Progression » de l'écran principal : un graphique par exercice, la force avant tout. */
 export default function ProgressSection({ onOpen }) {
   const { state } = useStore();
   const names = useMemo(() => Object.fromEntries(state.exercises.map((e) => [e.id, e.name])), [state.exercises]);
@@ -54,21 +51,23 @@ export default function ProgressSection({ onOpen }) {
 
   return (
     <section className="mt-9">
-      <h2 className="mb-2 px-1 text-[20px] font-bold tracking-tight">Progression</h2>
+      <div className="mb-2 flex items-baseline justify-between px-1">
+        <h2 className="text-[20px] font-bold tracking-tight">Progression</h2>
+        {mine.length > 0 && <span className="text-[13px] text-muted">1RM estimé</span>}
+      </div>
       {!mine.length ? (
         <div className="rounded-3xl bg-card p-5">
           <p className="text-[17px] font-semibold">Ta courbe commence ici</p>
-          <p className="mt-1 text-[15px] text-muted">Termine ta première séance : ton tonnage s’affichera ici, séance après séance.</p>
+          <p className="mt-1 text-[15px] text-muted">Termine ta première séance : la force de chaque exercice s’affichera ici, semaine après semaine.</p>
         </div>
       ) : (
         <>
-          <Tile big title="Tonnage par séance" series={seriesFor(mine)} onClick={() => onOpen(null)} />
-          <div className="mt-3 grid grid-cols-2 gap-3">
-            {(all ? exIds : exIds.slice(0, 4)).map((id) => (
+          <div className="grid grid-cols-2 gap-3">
+            {(all ? exIds : exIds.slice(0, 6)).map((id) => (
               <Tile key={id} title={names[id] ?? 'Exercice supprimé'} series={seriesFor(mine, id)} onClick={() => onOpen(id)} />
             ))}
           </div>
-          {exIds.length > 4 && (
+          {exIds.length > 6 && (
             <button onClick={() => setAll(!all)} className="mt-2 h-11 w-full text-[17px] text-pink active:opacity-50">
               {all ? 'Afficher moins' : `Tous les exercices (${exIds.length})`}
             </button>
