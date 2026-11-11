@@ -1,0 +1,34 @@
+@import "tailwindcss";
+
+@theme {
+  /* Une seule couleur d'accent, réservée à l'action et au progrès. Contraste ~17:1 sur le fond. */
+  --color-acid: #d4ff3a;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --animate-sheet: sheet-up 0.18s cubic-bezier(0.2, 0.9, 0.3, 1);
+
+  @keyframes sheet-up {
+    from { transform: translateY(24px); opacity: 0; }
+  }
+}
+
+@utility eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-zinc-500);
+}
+
+@layer base {
+  html { color-scheme: dark; -webkit-text-size-adjust: 100%; }
+  body { @apply bg-zinc-950 text-zinc-100 antialiased; overscroll-behavior-y: none; }
+  /* Taper vite sur +/− ne doit JAMAIS zoomer la page ni sélectionner du texte (iOS). */
+  button {
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  input { touch-action: manipulation; }
+}
