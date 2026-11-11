@@ -35,9 +35,9 @@ export function target(prev, inc = 2.5) {
   const top = prev.sets[0];
   const rirs = prev.sets.map((s) => s.rir).filter((x) => x != null);
   const minRir = rirs.length ? Math.min(...rirs) : 1;
-  if (minRir >= 2 && top.w > 0) return { w: round(top.w + inc), r: top.r, why: 'de la marge partout, on charge' };
+  if (minRir >= 2 && top.w > 0) return { w: round(top.w + inc), r: top.r, why: 'De la marge partout : on charge' };
   if (minRir >= 1) return { w: top.w, r: top.r + 1, why: '+1 rep à charge égale' };
-  return { w: top.w, r: top.r, why: "échec la dernière fois, on égale" };
+  return { w: top.w, r: top.r, why: "Échec la dernière fois : on égale" };
 }
 
 export const fmtW = (w) => (w > 0 ? String(round(w)).replace('.', ',') : 'PDC');

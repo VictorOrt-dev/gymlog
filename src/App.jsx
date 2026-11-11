@@ -40,7 +40,7 @@ function Shell() {
         <Home onOpenSession={() => setInSession(true)} />
       )}
       {toast && (
-        <div role="status" className="fixed inset-x-0 bottom-6 z-50 mx-auto w-fit max-w-[90%] animate-sheet rounded-full bg-zinc-100 px-5 py-3 text-sm font-black text-black shadow-2xl">
+        <div role="status" className="fixed inset-x-0 bottom-6 z-50 mx-auto w-fit max-w-[90%] animate-sheet rounded-full bg-white px-5 py-3 text-[15px] font-semibold text-black shadow-[0_10px_40px_rgba(0,0,0,.6)]">
           {toast}
         </div>
       )}

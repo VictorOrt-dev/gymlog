@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useStore } from '../lib/store';
 import { norm } from '../lib/training';
-import { Plus } from './Icons';
+import { Plus, Search } from './Icons';
 
-/** Plein écran, champ en haut (le clavier ne cache rien). Tape un nom : il existe → on le prend, sinon → créé. */
+/** Plein écran, recherche en haut (le clavier ne cache rien). Le nom existe → on le prend, sinon → créé. */
 export default function ExercisePicker({ open, onClose, onPick, exclude = [] }) {
   const { state, addExercise } = useStore();
   const [q, setQ] = useState('');
@@ -31,32 +31,40 @@ export default function ExercisePicker({ open, onClose, onPick, exclude = [] }) 
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex animate-sheet flex-col bg-zinc-950">
-      <form onSubmit={submit} className="mx-auto flex w-full max-w-md items-center gap-2 border-b border-zinc-900 p-3 pt-[max(.75rem,env(safe-area-inset-top))]">
-        <input
-          autoFocus
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Chercher ou créer un exercice"
-          enterKeyHint="done"
-          className="h-12 min-w-0 flex-1 rounded-xl bg-zinc-900 px-4 text-base outline-none ring-1 ring-zinc-800 placeholder:text-zinc-600 focus:ring-acid"
-        />
-        <button type="button" onClick={close} className="h-12 px-3 font-semibold text-zinc-400">
-          Fermer
+    <div className="fixed inset-0 z-[60] flex animate-sheet flex-col bg-black">
+      <form onSubmit={submit} className="mx-auto flex w-full max-w-md items-center gap-3 px-4 pb-3 pt-[max(.75rem,env(safe-area-inset-top))]">
+        <label className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-xl bg-fill px-3">
+          <Search className="h-[18px] w-[18px] shrink-0 text-muted" />
+          <input
+            autoFocus
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Rechercher ou créer"
+            enterKeyHint="done"
+            className="min-w-0 flex-1 bg-transparent text-[17px] outline-none placeholder:text-muted"
+          />
+        </label>
+        <button type="button" onClick={close} className="text-[17px] text-pink active:opacity-50">
+          Annuler
         </button>
       </form>
-      <div className="mx-auto w-full max-w-md flex-1 space-y-1 overflow-y-auto p-3">
+
+      <div className="mx-auto w-full max-w-md flex-1 overflow-y-auto px-4 pb-10">
         {nq && !exact && (
-          <button onClick={() => pick(addExercise(q.trim()))} className="flex h-14 w-full items-center gap-2 rounded-xl bg-acid px-4 text-left font-bold text-black">
+          <button onClick={() => pick(addExercise(q.trim()))} className="mb-4 flex h-[52px] w-full items-center justify-center gap-2 rounded-full bg-pink text-[17px] font-semibold text-white active:opacity-80">
             <Plus className="h-5 w-5" /> Créer « {q.trim()} »
           </button>
         )}
-        {list.map((e) => (
-          <button key={e.id} onClick={() => pick(e.id)} className="flex h-12 w-full items-center rounded-xl px-4 text-left font-medium active:bg-zinc-800">
-            {e.name}
-          </button>
-        ))}
-        {exact && exclude.includes(exact.id) && <p className="px-4 py-3 text-sm text-zinc-500">« {exact.name} » est déjà dans la liste.</p>}
+        {exact && exclude.includes(exact.id) && <p className="px-4 pb-3 text-[15px] text-muted">« {exact.name} » est déjà dans la liste.</p>}
+        {list.length > 0 && (
+          <div className="overflow-hidden rounded-2xl bg-card">
+            {list.map((e) => (
+              <button key={e.id} onClick={() => pick(e.id)} className="sep flex h-12 w-full items-center px-4 text-left text-[17px] active:bg-fill">
+                {e.name}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

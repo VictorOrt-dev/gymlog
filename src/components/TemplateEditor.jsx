@@ -19,6 +19,7 @@ export default function TemplateEditor({ template, onClose }) {
     [next[i - 1], next[i]] = [next[i], next[i - 1]];
     update({ exerciseIds: next });
   };
+  const iconBtn = 'grid h-10 w-10 place-items-center rounded-full text-muted active:bg-fill-hi';
 
   return (
     <>
@@ -28,41 +29,39 @@ export default function TemplateEditor({ template, onClose }) {
           onChange={(e) => update({ name: e.target.value })}
           placeholder="Nom de la séance"
           aria-label="Nom de la séance"
-          className="mb-3 w-full rounded-xl bg-transparent py-1 text-2xl font-black outline-none placeholder:text-zinc-600"
+          className="w-full bg-transparent text-[28px] font-bold tracking-tight outline-none placeholder:text-faint"
         />
-        <ul className="space-y-1">
+        <p className="mb-4 text-[15px] text-muted">
+          {ids.length} exercice{ids.length > 1 ? 's' : ''}
+        </p>
+        <div className="overflow-hidden rounded-2xl bg-fill">
           {ids.map((id, i) => (
-            <li key={id} className="flex h-12 items-center gap-1 rounded-xl bg-zinc-800/60 pl-4 pr-1">
-              <span className="w-5 text-xs font-bold tabular-nums text-zinc-500">{i + 1}</span>
-              <span className="min-w-0 flex-1 truncate font-medium">{names[id] ?? '—'}</span>
+            <div key={id} className="sep flex h-12 items-center gap-1 pl-4 pr-1">
+              <span className="w-6 font-num text-[13px] tabular-nums text-muted">{i + 1}</span>
+              <span className="min-w-0 flex-1 truncate text-[17px]">{names[id] ?? '—'}</span>
               {i > 0 && (
-                <button onClick={() => moveUp(i)} aria-label="Monter" className="grid h-10 w-10 place-items-center rounded-lg text-zinc-400 active:bg-zinc-700">
+                <button onClick={() => moveUp(i)} aria-label="Monter" className={iconBtn}>
                   <Up className="h-5 w-5" />
                 </button>
               )}
-              <button onClick={() => update({ exerciseIds: ids.filter((x) => x !== id) })} aria-label="Retirer" className="grid h-10 w-10 place-items-center rounded-lg text-zinc-400 active:bg-zinc-700">
+              <button onClick={() => update({ exerciseIds: ids.filter((x) => x !== id) })} aria-label="Retirer" className={iconBtn}>
                 <Close className="h-5 w-5" />
               </button>
-            </li>
+            </div>
           ))}
-        </ul>
-        <button
-          onClick={() => setPicking(true)}
-          className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-zinc-700 font-bold text-zinc-300 active:bg-zinc-800"
-        >
-          <Plus className="h-5 w-5" /> Ajouter un exercice
-        </button>
-        <div className="mt-5 grid grid-cols-2 gap-2">
-          <button
-            onClick={() => (confirmDelete ? (deleteTemplate(template.id), onClose()) : setConfirmDelete(true))}
-            className="h-12 rounded-xl bg-zinc-800 font-bold text-orange-400 active:bg-zinc-700"
-          >
-            {confirmDelete ? 'Sûr ? Supprimer' : 'Supprimer'}
-          </button>
-          <button onClick={onClose} className="h-12 rounded-xl bg-acid font-black text-black">
-            OK
+          <button onClick={() => setPicking(true)} className="sep flex h-12 w-full items-center gap-2 px-4 text-[17px] text-pink active:opacity-50">
+            <Plus className="h-5 w-5" /> Ajouter un exercice
           </button>
         </div>
+        <button onClick={onClose} className="mt-6 h-[52px] w-full rounded-full bg-pink text-[17px] font-semibold text-white active:opacity-80">
+          Terminé
+        </button>
+        <button
+          onClick={() => (confirmDelete ? (deleteTemplate(template.id), onClose()) : setConfirmDelete(true))}
+          className="mt-1 h-12 w-full text-[17px] text-pink active:opacity-50"
+        >
+          {confirmDelete ? 'Toucher encore pour supprimer' : 'Supprimer la séance'}
+        </button>
       </Sheet>
       <ExercisePicker open={picking} onClose={() => setPicking(false)} exclude={ids} onPick={(id) => update({ exerciseIds: [...ids, id] })} />
     </>

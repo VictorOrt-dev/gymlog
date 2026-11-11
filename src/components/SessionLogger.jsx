@@ -58,27 +58,28 @@ export default function SessionLogger({ onExit, onFinished }) {
 
   return (
     <div className="min-h-dvh pb-32">
-      <header className="sticky top-0 z-30 border-b border-zinc-900 bg-zinc-950/90 pt-[env(safe-area-inset-top)] backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-md items-center gap-2 px-2">
-          <button onClick={onExit} aria-label="Retour à l'accueil (la séance reste en cours)" className="grid h-12 w-12 place-items-center rounded-xl text-zinc-400 active:bg-zinc-800">
-            <Back />
+      <header className="sticky top-0 z-30 border-b-[0.5px] border-line/70 bg-black/80 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
+        <div className="mx-auto grid h-14 max-w-md grid-cols-[1fr_auto_1fr] items-center px-2">
+          <button onClick={onExit} aria-label="Retour à l'accueil (la séance reste en cours)" className="flex h-11 items-center justify-self-start pr-2 text-[17px] text-pink active:opacity-50">
+            <Back className="h-6 w-6" strokeWidth={2.5} />
+            Accueil
           </button>
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-lg font-black leading-tight">{draft.name}</div>
-            <div className="text-xs font-semibold tabular-nums text-zinc-500">
+          <div className="min-w-0 max-w-[42vw] text-center leading-tight">
+            <div className="truncate text-[17px] font-semibold">{draft.name}</div>
+            <div className="font-num text-[12px] tabular-nums text-muted">
               <Elapsed since={draft.startedAt} /> · {total} série{total > 1 ? 's' : ''}
             </div>
           </div>
           <button
             onClick={finish}
-            className={`h-12 rounded-xl px-4 font-black transition-colors ${confirming ? 'bg-acid text-black' : 'bg-zinc-800 text-zinc-100 active:bg-zinc-700'}`}
+            className={`h-9 justify-self-end rounded-full px-3.5 text-[17px] font-semibold ${confirming ? 'bg-pink text-white' : 'text-pink active:opacity-50'}`}
           >
-            {confirming ? (total ? 'Confirmer ✓' : 'Abandonner ?') : 'Terminer'}
+            {confirming ? (total ? 'Confirmer' : 'Abandonner') : 'Terminer'}
           </button>
         </div>
       </header>
 
-      <main className="mx-auto max-w-md space-y-2 p-3">
+      <main className="mx-auto max-w-md space-y-3 px-4 pt-3">
         {items.map((it, i) => (
           <ExerciseCard
             key={it.exerciseId}
@@ -102,7 +103,7 @@ export default function SessionLogger({ onExit, onFinished }) {
 
         <button
           onClick={() => setPicking(true)}
-          className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-zinc-700 font-bold text-zinc-300 active:bg-zinc-900"
+          className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-card text-[17px] font-medium text-pink active:opacity-60"
         >
           <Plus className="h-5 w-5" /> Ajouter un exercice
         </button>

@@ -4,7 +4,7 @@ import { useStore } from '../lib/store';
 import { ago } from '../lib/training';
 import Sheet from './Sheet';
 import TemplateEditor from './TemplateEditor';
-import { Check, Play } from './Icons';
+import { Check, Play, Plus } from './Icons';
 
 const DAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 const startOfDay = (d) => new Date(new Date(d).setHours(0, 0, 0, 0));
@@ -25,8 +25,37 @@ function useWeek(sessions) {
   }, [sessions]);
 }
 
-const Avatar = ({ name, className = '' }) => (
-  <span className={`grid h-8 w-8 place-items-center rounded-full bg-acid font-black text-black ${className}`}>{(name || '?')[0].toUpperCase()}</span>
+const Avatar = ({ name, className = 'h-9 w-9 bg-fill-hi text-[15px]' }) => (
+  <span className={`grid shrink-0 place-items-center rounded-full font-semibold text-white ${className}`}>{(name || '?')[0].toUpperCase()}</span>
+);
+
+const PrimaryButton = ({ onClick, children }) => (
+  <button onClick={onClick} className="mt-5 h-[52px] w-full rounded-full bg-pink text-[17px] font-semibold text-white active:opacity-80">
+    {children}
+  </button>
+);
+
+/** Section façon Réglages iOS : titre, carte groupée, note en dessous. */
+const Group = ({ title, action, footer, footerClass = 'text-muted', children }) => (
+  <section className="mt-9">
+    <div className="mb-2 flex items-baseline justify-between px-1">
+      <h2 className="text-[20px] font-bold tracking-tight">{title}</h2>
+      {action}
+    </div>
+    <div className="overflow-hidden rounded-2xl bg-card">{children}</div>
+    {footer && <p className={`mt-2 px-4 text-[13px] ${footerClass}`}>{footer}</p>}
+  </section>
+);
+
+const PlayButton = ({ label, onClick, disabled }) => (
+  <button
+    onClick={onClick}
+    disabled={disabled}
+    aria-label={label}
+    className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-pink/15 text-pink active:opacity-60 disabled:opacity-30"
+  >
+    <Play className="h-4 w-4 translate-x-px" />
+  </button>
 );
 
 export default function Home({ onOpenSession }) {
@@ -53,6 +82,7 @@ export default function Home({ onOpenSession }) {
   const plannedCount = plan.filter((x) => tplById[x]).length;
   const preview = (t) => t.exerciseIds.map((id) => exName[id]).filter(Boolean).join(' · ');
   const setCount = (s) => s.items.reduce((n, it) => n + it.sets.length, 0);
+  const dateLabel = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 
   const start = (templateId) => {
     startSession(templateId);
@@ -83,164 +113,144 @@ export default function Home({ onOpenSession }) {
   const exportStale = mine.length >= 3 && (!state.lastExport || Date.now() - state.lastExport > 14 * 864e5);
 
   return (
-    <div className="mx-auto min-h-dvh max-w-md px-4 pb-16 pt-[max(1rem,env(safe-area-inset-top))]">
-      <header className="flex h-14 items-center justify-between">
-        <h1 className="text-2xl font-black tracking-tight">
-          GYM<span className="text-acid">LOG</span>
-        </h1>
-        <button onClick={() => setProfilesOpen(true)} className="flex h-11 items-center gap-2 rounded-full bg-zinc-900 pl-1.5 pr-4 ring-1 ring-zinc-800 active:bg-zinc-800">
-          <Avatar name={profile.name} />
-          <span className="max-w-32 truncate font-bold">{profile.name}</span>
+    <div className="mx-auto min-h-dvh max-w-md px-4 pb-20 pt-[max(1.25rem,env(safe-area-inset-top))]">
+      {/* Grand titre façon iOS */}
+      <header className="flex items-end justify-between gap-3 pt-2">
+        <div className="min-w-0">
+          <p className="text-[15px] font-medium text-muted first-letter:uppercase">{dateLabel}</p>
+          <h1 className="text-[34px] font-bold leading-tight tracking-tight">Aujourd'hui</h1>
+        </div>
+        <button onClick={() => setProfilesOpen(true)} aria-label={`Profil : ${profile.name}`} className="mb-1.5 active:opacity-60">
+          <Avatar name={profile.name} className="h-10 w-10 bg-fill-hi text-[17px]" />
         </button>
       </header>
 
-      {/* Le bouton principal : ce qu'il faut faire MAINTENANT */}
-      {draft ? (
-        <button onClick={onOpenSession} className="mt-3 w-full rounded-3xl bg-acid p-5 text-left text-black active:scale-[.99]">
-          <div className="text-xs font-black uppercase tracking-widest opacity-60">Séance en cours</div>
-          <div className="mt-1 flex items-center justify-between gap-3">
-            <span className="truncate text-3xl font-black">{draft.name}</span>
-            <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-black text-acid">
-              <Play />
-            </span>
-          </div>
-          <div className="mt-1 text-sm font-bold opacity-60">
-            {setCount(draft)} séries · démarrée à {new Date(draft.startedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-          </div>
-        </button>
-      ) : todayTpl && !today.done ? (
-        <button onClick={() => start(todayTpl.id)} className="mt-3 w-full rounded-3xl bg-acid p-5 text-left text-black active:scale-[.99]">
-          <div className="text-xs font-black uppercase tracking-widest opacity-60">Aujourd'hui</div>
-          <div className="mt-1 flex items-center justify-between gap-3">
-            <span className="truncate text-3xl font-black">{todayTpl.name || 'Séance'}</span>
-            <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-black text-acid">
-              <Play />
-            </span>
-          </div>
-          <div className="mt-1 line-clamp-1 text-sm font-semibold opacity-60">{preview(todayTpl) || 'Aucun exercice'}</div>
-        </button>
-      ) : (
-        <div className="mt-3 rounded-3xl bg-zinc-900 p-5 ring-1 ring-zinc-800">
-          <div className="eyebrow">Aujourd'hui</div>
-          <div className="mt-1 text-2xl font-black">{today.done ? 'Séance faite. Propre.' : 'Repos.'}</div>
-          <div className="mt-1 text-sm text-zinc-400">
-            {today.done ? 'Mange, dors, reviens plus fort.' : 'Le muscle se construit pendant la récup. Envie quand même ? Choisis une séance plus bas.'}
-          </div>
-        </div>
-      )}
+      {/* Une carte, une action. */}
+      <div className="mt-5 rounded-3xl bg-card p-5">
+        {draft ? (
+          <>
+            <p className="text-[13px] font-semibold text-pink">En cours</p>
+            <p className="mt-1 truncate text-[28px] font-bold leading-tight tracking-tight">{draft.name}</p>
+            <p className="mt-1 text-[15px] text-muted">
+              {setCount(draft)} séries · depuis {new Date(draft.startedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+            </p>
+            <PrimaryButton onClick={onOpenSession}>Reprendre</PrimaryButton>
+          </>
+        ) : todayTpl && !today.done ? (
+          <>
+            <p className="text-[13px] font-semibold text-muted">Au programme</p>
+            <p className="mt-1 truncate text-[28px] font-bold leading-tight tracking-tight">{todayTpl.name || 'Séance'}</p>
+            <p className="mt-1 line-clamp-2 text-[15px] text-muted">{preview(todayTpl) || 'Aucun exercice pour l’instant'}</p>
+            <PrimaryButton onClick={() => start(todayTpl.id)}>Commencer</PrimaryButton>
+          </>
+        ) : today.done ? (
+          <>
+            <p className="text-[13px] font-semibold text-pink">Terminé</p>
+            <p className="mt-1 text-[28px] font-bold leading-tight tracking-tight">Séance faite</p>
+            <p className="mt-1 text-[15px] text-muted">Mange, dors, reviens plus fort.</p>
+          </>
+        ) : (
+          <>
+            <p className="text-[13px] font-semibold text-muted">Au programme</p>
+            <p className="mt-1 text-[28px] font-bold leading-tight tracking-tight">Repos</p>
+            <p className="mt-1 text-[15px] text-muted">La récupération fait partie du programme. Envie quand même ? Choisis une séance plus bas.</p>
+          </>
+        )}
+      </div>
 
       {/* Semaine : fréquence et jours off d'un coup d'œil */}
-      <section className="mt-7">
-        <div className="mb-2 flex items-baseline justify-between">
-          <h2 className="eyebrow">
-            Semaine{' '}
-            <span className="ml-1 text-sm tracking-normal text-zinc-100 tabular-nums">
-              {doneCount}/{plannedCount}
-            </span>
-          </h2>
-          <button onClick={() => setEditPlan(!editPlan)} className="-my-2 px-2 py-2 text-sm font-bold text-acid">
+      <Group
+        title="Cette semaine"
+        action={
+          <button onClick={() => setEditPlan(!editPlan)} className="text-[17px] text-pink active:opacity-50">
             {editPlan ? 'OK' : 'Modifier'}
           </button>
-        </div>
-        <div className="grid grid-cols-7 gap-1.5">
+        }
+        footer={editPlan ? 'Touche un jour pour changer de séance ou passer en repos.' : `${doneCount} séance${doneCount > 1 ? 's' : ''} sur ${plannedCount} cette semaine`}
+      >
+        <div className="grid grid-cols-7 px-1 py-4">
           {week.map((d) => {
             const tpl = tplById[plan[d.i]];
-            const missed = d.isPast && tpl && !d.done;
             const Tag = editPlan ? 'button' : 'div';
+            const name = d.done?.name ?? tpl?.name ?? '';
             return (
-              <Tag
-                key={d.i}
-                {...(editPlan && { onClick: () => cycleDay(d.i), type: 'button' })}
-                className={`relative flex h-20 flex-col items-center justify-center rounded-2xl ${
-                  d.done ? 'bg-acid text-black' : tpl ? 'bg-zinc-800 text-zinc-100' : 'bg-zinc-900/60 text-zinc-600'
-                } ${d.isToday ? 'ring-2 ring-zinc-100 ring-offset-2 ring-offset-zinc-950' : ''} ${editPlan ? 'outline-2 outline-offset-1 outline-dashed outline-zinc-600' : ''}`}
-              >
-                <span className="text-[11px] font-bold opacity-60">{d.label}</span>
-                <span className="text-lg font-black leading-none tabular-nums">{d.date.getDate()}</span>
-                <span className="mt-1 w-full truncate px-0.5 text-center text-[10px] font-black uppercase">{d.done ? d.done.name : tpl ? tpl.name : 'off'}</span>
-                {missed && <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-orange-400" />}
+              <Tag key={d.i} {...(editPlan && { onClick: () => cycleDay(d.i), type: 'button' })} className="flex min-w-0 flex-col items-center gap-1.5">
+                <span className={`text-[13px] font-semibold ${d.isToday ? 'text-pink' : 'text-muted'}`}>{d.label}</span>
+                <span
+                  className={`grid h-10 w-10 place-items-center rounded-full font-num text-[15px] font-semibold tabular-nums ${
+                    d.done ? 'bg-pink text-white' : tpl ? `bg-fill text-white ${d.isPast ? 'opacity-40' : ''}` : 'text-faint'
+                  } ${d.isToday && !d.done ? 'ring-2 ring-pink' : ''} ${editPlan ? 'outline-1 outline-offset-2 outline-dashed outline-muted' : ''}`}
+                >
+                  {d.done ? <Check className="h-5 w-5" strokeWidth={3} /> : d.date.getDate()}
+                </span>
+                <span className={`h-3.5 w-full truncate px-0.5 text-center text-[11px] font-medium ${d.done ? 'text-pink' : 'text-muted'}`}>{name}</span>
               </Tag>
             );
           })}
         </div>
-        {editPlan && <p className="mt-2 text-xs text-zinc-500">Touche un jour pour alterner entre tes séances et repos.</p>}
-      </section>
+      </Group>
 
       {/* Séances types */}
-      <section className="mt-7">
-        <h2 className="eyebrow mb-2">Séances types</h2>
-        <div className="space-y-2">
-          {templates.map((t) => (
-            <div key={t.id} className="flex items-center gap-2 rounded-2xl bg-zinc-900 p-2 pl-4 ring-1 ring-zinc-800">
-              <button onClick={() => setEditingId(t.id)} className="min-w-0 flex-1 py-1.5 text-left">
-                <div className="truncate text-lg font-black">{t.name || 'Sans nom'}</div>
-                <div className="truncate text-sm text-zinc-500">{preview(t) || 'Touche pour ajouter des exercices'}</div>
-              </button>
-              <button
-                onClick={() => start(t.id)}
-                disabled={!!draft}
-                aria-label={`Démarrer ${t.name}`}
-                className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-zinc-800 text-acid active:bg-zinc-700 disabled:opacity-25"
-              >
-                <Play />
-              </button>
-            </div>
-          ))}
-          <div className="grid grid-cols-2 gap-2">
-            <button onClick={newTemplate} className="h-12 rounded-2xl border border-dashed border-zinc-700 text-sm font-bold text-zinc-300 active:bg-zinc-900">
-              + Séance type
+      <Group title="Mes séances">
+        {templates.map((t) => (
+          <div key={t.id} className="sep flex items-center gap-3 pr-3">
+            <button onClick={() => setEditingId(t.id)} className="min-w-0 flex-1 py-3 pl-4 text-left active:opacity-60">
+              <div className="truncate text-[17px] font-semibold">{t.name || 'Sans nom'}</div>
+              <div className="truncate text-[15px] text-muted">{preview(t) || 'Touche pour ajouter des exercices'}</div>
             </button>
-            <button
-              onClick={() => start(null)}
-              disabled={!!draft}
-              className="h-12 rounded-2xl border border-dashed border-zinc-700 text-sm font-bold text-zinc-300 active:bg-zinc-900 disabled:opacity-25"
-            >
-              Séance libre
-            </button>
+            <PlayButton label={`Démarrer ${t.name}`} onClick={() => start(t.id)} disabled={!!draft} />
           </div>
+        ))}
+        <div className="sep flex items-center gap-3 pr-3">
+          <div className="min-w-0 flex-1 py-3 pl-4">
+            <div className="text-[17px] font-semibold">Séance libre</div>
+            <div className="text-[15px] text-muted">Ajoute les exercices au fil de l’eau</div>
+          </div>
+          <PlayButton label="Démarrer une séance libre" onClick={() => start(null)} disabled={!!draft} />
         </div>
-      </section>
+        <button onClick={newTemplate} className="sep flex h-12 w-full items-center gap-2 px-4 text-[17px] text-pink active:opacity-50">
+          <Plus className="h-5 w-5" /> Nouvelle séance type
+        </button>
+      </Group>
 
       {mine.length > 0 && (
-        <section className="mt-7">
-          <h2 className="eyebrow mb-2">Historique</h2>
-          <ul className="divide-y divide-zinc-800/70 overflow-hidden rounded-2xl bg-zinc-900/60 ring-1 ring-zinc-900">
-            {mine
-              .slice(-5)
-              .reverse()
-              .map((s) => (
-                <li key={s.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
-                  <span className="min-w-0 truncate">
-                    <b className="font-black">{s.name}</b> <span className="text-zinc-500">{ago(s.startedAt)}</span>
-                  </span>
-                  <span className="shrink-0 tabular-nums text-zinc-400">
-                    {setCount(s)} séries · {Math.round((s.endedAt - s.startedAt) / 60e3)} min
-                  </span>
-                </li>
-              ))}
-          </ul>
-        </section>
+        <Group title="Historique">
+          {mine
+            .slice(-5)
+            .reverse()
+            .map((s) => (
+              <div key={s.id} className="sep flex items-center justify-between gap-3 px-4 py-3">
+                <div className="min-w-0">
+                  <div className="truncate text-[17px] font-semibold">{s.name}</div>
+                  <div className="text-[15px] text-muted first-letter:uppercase">{ago(s.startedAt)}</div>
+                </div>
+                <div className="shrink-0 text-right font-num text-[15px] tabular-nums text-muted">
+                  {setCount(s)} séries
+                  <br />
+                  {Math.round((s.endedAt - s.startedAt) / 60e3)} min
+                </div>
+              </div>
+            ))}
+        </Group>
       )}
 
-      {/* Sauvegarde : le localStorage, ça s'efface. 1 tap pour ne jamais perdre 6 mois de progression. */}
-      <section className="mt-7 rounded-2xl p-4 ring-1 ring-zinc-900">
-        <h2 className="eyebrow">Sauvegarde</h2>
-        <p className={`mt-1 text-xs ${exportStale ? 'text-orange-400' : 'text-zinc-500'}`}>
-          {state.lastExport ? `Dernier export ${ago(state.lastExport)}.` : 'Jamais exporté.'} Tes données vivent sur ce téléphone uniquement.
-        </p>
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <button onClick={exportData} className="h-11 rounded-xl bg-zinc-800 text-sm font-bold active:bg-zinc-700">
-            Exporter
-          </button>
-          <button onClick={() => fileRef.current?.click()} className="h-11 rounded-xl bg-zinc-800 text-sm font-bold active:bg-zinc-700">
-            Importer
-          </button>
-          <input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={importFile} />
-        </div>
-      </section>
+      {/* Sauvegarde : le localStorage, ça s'efface. 1 tap pour ne jamais perdre des mois de progression. */}
+      <Group
+        title="Mes données"
+        footer={`Elles restent sur ce téléphone. ${state.lastExport ? `Dernier export : ${ago(state.lastExport)}.` : 'Jamais exportées.'}`}
+        footerClass={exportStale ? 'text-pink' : 'text-muted'}
+      >
+        <button onClick={exportData} className="sep flex h-12 w-full items-center px-4 text-[17px] text-pink active:opacity-50">
+          Exporter une sauvegarde
+        </button>
+        <button onClick={() => fileRef.current?.click()} className="sep flex h-12 w-full items-center px-4 text-[17px] text-pink active:opacity-50">
+          Importer une sauvegarde
+        </button>
+        <input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={importFile} />
+      </Group>
 
-      <Sheet open={profilesOpen} onClose={() => setProfilesOpen(false)} title="Qui s'entraîne ?">
-        <div className="space-y-1">
+      <Sheet open={profilesOpen} onClose={() => setProfilesOpen(false)} title="Qui s’entraîne ?">
+        <div className="overflow-hidden rounded-2xl bg-fill">
           {state.profiles.map((p) => (
             <button
               key={p.id}
@@ -248,12 +258,12 @@ export default function Home({ onOpenSession }) {
                 switchProfile(p.id);
                 setProfilesOpen(false);
               }}
-              className="flex h-14 w-full items-center gap-3 rounded-xl px-3 active:bg-zinc-800"
+              className="sep flex h-14 w-full items-center gap-3 px-4 active:bg-fill-hi"
             >
-              <Avatar name={p.name} />
-              <span className="flex-1 truncate text-left text-lg font-bold">{p.name}</span>
-              {state.drafts[p.id] && <span className="text-xs font-bold text-acid">en séance</span>}
-              {p.id === pid && <Check className="h-6 w-6 text-acid" />}
+              <Avatar name={p.name} className="h-8 w-8 bg-seg text-[15px]" />
+              <span className="flex-1 truncate text-left text-[17px]">{p.name}</span>
+              {state.drafts[p.id] && <span className="text-[13px] text-muted">En séance</span>}
+              {p.id === pid && <Check className="h-5 w-5 text-pink" strokeWidth={3} />}
             </button>
           ))}
         </div>
@@ -265,15 +275,15 @@ export default function Home({ onOpenSession }) {
             setNewName('');
             setProfilesOpen(false);
           }}
-          className="mt-3 flex gap-2"
+          className="mt-4 flex gap-2"
         >
           <input
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            placeholder="Prénom d'un pote"
-            className="h-12 min-w-0 flex-1 rounded-xl bg-zinc-800 px-4 text-base outline-none placeholder:text-zinc-500 focus:ring-1 focus:ring-acid"
+            placeholder="Prénom d’un pote"
+            className="h-12 min-w-0 flex-1 rounded-xl bg-fill px-4 text-[17px] outline-none placeholder:text-muted"
           />
-          <button className="h-12 rounded-xl bg-acid px-5 font-black text-black">Ajouter</button>
+          <button className="h-12 rounded-full bg-pink px-5 text-[17px] font-semibold text-white active:opacity-80">Ajouter</button>
         </form>
       </Sheet>
 

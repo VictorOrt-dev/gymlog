@@ -1,27 +1,44 @@
 @import "tailwindcss";
 
 @theme {
-  /* Une seule couleur d'accent, réservée à l'action et au progrès. Contraste ~17:1 sur le fond. */
-  --color-acid: #d4ff3a;
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --animate-sheet: sheet-up 0.18s cubic-bezier(0.2, 0.9, 0.3, 1);
+  /* Noir pur + une seule couleur : le rose est réservé à l'action et au progrès. */
+  --color-pink: #ff3b80;
+  --color-card: #1c1c1e;    /* surfaces (iOS secondarySystemBackground) */
+  --color-fill: #2c2c2e;    /* contrôles */
+  --color-fill-hi: #3a3a3c; /* boutons ronds sur contrôle */
+  --color-seg: #636366;     /* segment sélectionné */
+  --color-line: #38383a;    /* séparateurs */
+  --color-muted: #8e8e93;   /* texte secondaire */
+  --color-faint: #48484a;   /* texte tertiaire */
+
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* Chiffres en SF Pro Rounded sur iPhone, comme l'app Forme. */
+  --font-num: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  --animate-sheet: sheet-up 0.24s cubic-bezier(0.2, 0.9, 0.3, 1);
 
   @keyframes sheet-up {
     from { transform: translateY(24px); opacity: 0; }
   }
 }
 
-@utility eyebrow {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--color-zinc-500);
+/* Séparateur fin entre les lignes d'une liste groupée, en retrait à gauche comme sur iOS. */
+@utility sep {
+  position: relative;
+  &:not(:first-child)::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: var(--sep-inset, 1rem);
+    right: 0;
+    height: 0.5px;
+    background: var(--color-line);
+  }
 }
 
 @layer base {
   html { color-scheme: dark; -webkit-text-size-adjust: 100%; }
-  body { @apply bg-zinc-950 text-zinc-100 antialiased; overscroll-behavior-y: none; }
+  body { @apply bg-black text-white antialiased; overscroll-behavior-y: none; }
   /* Taper vite sur +/− ne doit JAMAIS zoomer la page ni sélectionner du texte (iOS). */
   button {
     cursor: pointer;
@@ -29,6 +46,7 @@
     -webkit-tap-highlight-color: transparent;
     user-select: none;
     -webkit-user-select: none;
+    transition: opacity 0.15s, background-color 0.15s, color 0.15s;
   }
   input { touch-action: manipulation; }
 }
