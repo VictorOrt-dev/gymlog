@@ -4,12 +4,21 @@ Le carnet de muscu qui ne te ralentit pas. Pensé pour la salle : mains pleines 
 
 ![GymLog](docs/preview.png)
 
+Quatre onglets, comme une app iPhone :
+
+- **Aujourd'hui** : la séance du jour en un bouton, ta semaine (faite / prévue / repos), ta dernière séance.
+- **Séances** : tes séances (Push, Pull, Legs, Upper, Lower, Full body…), à créer et modifier comme tu veux. **Glisse une séance vers la gauche pour la supprimer**, avec « Annuler » pendant 5 s. Modèles prêts à ajouter en un tap.
+- **Historique** : les 5 dernières semaines, séance par séance. Touche une séance pour revoir chaque série.
+- **Progrès** : séries par semaine, puis la courbe de chaque exercice (force estimée, charge max, volume), tes records et le détail séance par séance.
+
+Pendant la séance :
+
 - **La dernière fois, série par série** : chaque série d'aujourd'hui est alignée avec la même série de la séance précédente. La ligne « À battre » montre le chiffre exact à dépasser.
 - **Objectif pré-rempli** : poids et reps déjà calculés à partir de ta dernière séance et de ton RIR. Séance faite comme prévu = un seul tap sur Valider.
 - **Le repos démarre tout seul** quand tu valides une série. Bip et vibration à la fin, durée mémorisée par exercice.
-- **Semaine Push / Pull / Legs** (ou ce que tu veux) : jours d'entraînement, jours off et séances faites d'un coup d'œil.
-- **Plusieurs profils** pour les potes, **exercices perso** créés en tapant leur nom.
-- **Rien ne se perd** : sauvegarde à chaque tap, l'écran reste allumé pendant la séance, ça marche hors-ligne, export/import JSON.
+- **91 exercices** rangés par muscle, et tu crées les tiens en tapant leur nom.
+
+Et aussi : **plusieurs profils** pour les potes, sauvegarde à chaque tap, écran qui reste allumé pendant la séance, fonctionne hors-ligne, export/import JSON (derrière l'avatar).
 
 ## Démarrer
 
@@ -34,21 +43,22 @@ Fais-le : sur iOS, Safari peut effacer les données d'un site non ouvert pendant
 
 ```
 src/
-├─ App.jsx                  écran Accueil ⇄ Séance, toast de fin
+├─ App.jsx                  onglets ⇄ séance en cours
 ├─ lib/
 │  ├─ store.jsx             état global + persistance localStorage (2 clés)
-│  ├─ defaults.js           bibliothèque d'exercices, programme PPL de départ
+│  ├─ defaults.js           91 exercices par muscle, modèles, migration des données
 │  ├─ training.js           progression : dernière perf, objectif, ▲/▼, formats
 │  └─ hooks.js              timer de repos, wake lock, horloge
 └─ components/
    ├─ SessionLogger.jsx     ★ la vue de séance (95 % du temps)
    ├─ ExerciseCard.jsx      ★ saisie d'un exercice + comparaison série par série
-   ├─ Stepper.jsx           gros −/+ avec saisie clavier
-   ├─ RestTimer.jsx         barre de repos fixée en bas
-   ├─ ExercisePicker.jsx    chercher ou créer un exercice
-   ├─ Home.jsx              aujourd'hui, semaine, séances types, historique, sauvegarde
-   ├─ TemplateEditor.jsx    éditer une séance type
-   ├─ Sheet.jsx · Icons.jsx
+   ├─ Today.jsx             onglet Aujourd'hui
+   ├─ Templates.jsx         onglet Séances (+ TemplateEditor.jsx)
+   ├─ History.jsx           onglet Historique (+ SessionDetail.jsx)
+   ├─ Progress.jsx          onglet Progrès : graphiques en SVG, sans librairie
+   ├─ SwipeRow.jsx          glisser pour supprimer
+   ├─ ExercisePicker.jsx    chercher, parcourir par muscle, créer
+   ├─ RestTimer · Stepper · TabBar · Toast · Sheet · ProfileSheet · ui · Icons
 ```
 
 ## La règle de progression

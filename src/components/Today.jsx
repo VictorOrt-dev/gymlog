@@ -1,0 +1,180 @@
+import { useMemo, useState } from 'react';
+import { useStore } from '../lib/store';
+import { ago } from '../lib/training';
+import ProfileSheet, { isExportStale } from './ProfileSheet';
+import SessionDetail, { sessionStats } from './SessionDetail';
+import Sheet from './Sheet';
+import { Check, ChevronRight } from './Icons';
+import { Avatar, Group, LargeTitle, Page, PrimaryButton, SecondaryButton } from './ui';
+
+const DAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+const DAY_NAMES = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+const startOfDay = (d) => new Date(new Date(d).setHours(0, 0, 0, 0));
+
+function useWeek(sessions) {
+  return useMemo(() => {
+    const today = startOfDay(Date.now());
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+    return DAYS.map((label, i) => {
+      const date = new Date(monday);
+      date.setDate(monday.getDate() + i);
+      const end = new Date(date);
+      end.setDate(date.getDate() + 1);
+      const done = sessions.find((s) => s.startedAt >= +date && s.startedAt < +end);
+      return { i, label, date, done, isToday: +date === +today, isPast: date < today };
+    });
+  }, [sessions]);
+}
+
+/** Onglet « Aujourd'hui » : ce qu'il faut faire maintenant, et la semaine d'un coup d'œil. */
+export default function Today({ onOpenSession, goTo }) {
+  const { state, startSession, setPlanDay } = useStore();
+  const pid = state.profileId;
+  const profile = state.profiles.find((p) => p.id === pid) ?? state.profiles[0];
+  const draft = state.drafts[pid];
+  const templates = state.templates.filter((t) => t.profileId === pid);
+  const tplById = Object.fromEntries(templates.map((t) => [t.id, t]));
+  const exName = Object.fromEntries(state.exercises.map((e) => [e.id, e.name]));
+  const plan = state.plans[pid] ?? Array(7).fill(null);
+  const mine = useMemo(() => state.sessions.filter((s) => s.profileId === pid), [state.sessions, pid]);
+  const week = useWeek(mine);
+
+  const [editPlan, setEditPlan] = useState(false);
+  const [planDay, setPlanDayOpen] = useState(null);
+  const [detailId, setDetailId] = useState(null);
+  const [profilesOpen, setProfilesOpen] = useState(false);
+
+  const today = week.find((d) => d.isToday);
+  const todayTpl = tplById[plan[today.i]];
+  const doneCount = week.filter((d) => d.done).length;
+  const plannedCount = plan.filter((x) => tplById[x]).length;
+  const last = mine.at(-1);
+  const preview = (t) => t.exerciseIds.map((id) => exName[id]).filter(Boolean).join(' · ');
+  const dateLabel = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+
+  const start = (templateId) => {
+    startSession(templateId);
+    onOpenSession();
+  };
+
+  return (
+    <Page>
+      <LargeTitle
+        title="Aujourd'hui"
+        subtitle={dateLabel}
+        right={
+          <button onClick={() => setProfilesOpen(true)} aria-label={`Profil : ${profile.name}`} className="relative mb-1.5 active:opacity-60">
+            <Avatar name={profile.name} className="h-10 w-10 bg-fill-hi text-[17px]" />
+            {isExportStale(state) && <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full bg-pink ring-2 ring-black" />}
+          </button>
+        }
+      />
+
+      {/* Une carte, une action. */}
+      <div className="mt-5 rounded-3xl bg-card p-5">
+        {draft ? (
+          <>
+            <p className="text-[13px] font-semibold text-pink">En cours</p>
+            <p className="mt-1 truncate text-[28px] font-bold leading-tight tracking-tight">{draft.name}</p>
+            <p className="mt-1 text-[15px] text-muted">
+              {draft.items.reduce((n, it) => n + it.sets.length, 0)} séries · depuis{' '}
+              {new Date(draft.startedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+            </p>
+            <PrimaryButton onClick={onOpenSession}>Reprendre</PrimaryButton>
+          </>
+        ) : todayTpl && !today.done ? (
+          <>
+            <p className="text-[13px] font-semibold text-muted">Au programme</p>
+            <p className="mt-1 truncate text-[28px] font-bold leading-tight tracking-tight">{todayTpl.name || 'Séance'}</p>
+            <p className="mt-1 line-clamp-2 text-[15px] text-muted">{preview(todayTpl) || 'Aucun exercice pour l’instant'}</p>
+            <PrimaryButton onClick={() => start(todayTpl.id)}>Commencer</PrimaryButton>
+          </>
+        ) : (
+          <>
+            <p className={`text-[13px] font-semibold ${today.done ? 'text-pink' : 'text-muted'}`}>{today.done ? 'Terminé' : 'Au programme'}</p>
+            <p className="mt-1 text-[28px] font-bold leading-tight tracking-tight">{today.done ? 'Séance faite' : 'Repos'}</p>
+            <p className="mt-1 text-[15px] text-muted">
+              {today.done ? 'Mange, dors, reviens plus fort.' : 'La récupération fait partie du programme.'}
+            </p>
+            <SecondaryButton onClick={() => goTo('templates')}>{today.done ? 'Faire une autre séance' : 'Choisir une séance quand même'}</SecondaryButton>
+          </>
+        )}
+      </div>
+
+      {/* Semaine : fréquence et jours off d'un coup d'œil */}
+      <Group
+        title="Cette semaine"
+        action={
+          <button onClick={() => setEditPlan(!editPlan)} className="text-[17px] text-pink active:opacity-50">
+            {editPlan ? 'OK' : 'Modifier'}
+          </button>
+        }
+        footer={editPlan ? 'Touche un jour pour choisir sa séance ou le passer en repos.' : `${doneCount} séance${doneCount > 1 ? 's' : ''} sur ${plannedCount} cette semaine`}
+      >
+        <div className="grid grid-cols-7 px-1 py-4">
+          {week.map((d) => {
+            const tpl = tplById[plan[d.i]];
+            const tap = editPlan ? () => setPlanDayOpen(d.i) : d.done ? () => setDetailId(d.done.id) : null;
+            const Tag = tap ? 'button' : 'div';
+            return (
+              <Tag key={d.i} {...(tap && { onClick: tap, type: 'button' })} className="flex min-w-0 flex-col items-center gap-1.5">
+                <span className={`text-[13px] font-semibold ${d.isToday ? 'text-pink' : 'text-muted'}`}>{d.label}</span>
+                <span
+                  className={`grid h-10 w-10 place-items-center rounded-full font-num text-[15px] font-semibold tabular-nums ${
+                    d.done ? 'bg-pink text-white' : tpl ? `bg-fill text-white ${d.isPast ? 'opacity-40' : ''}` : 'text-faint'
+                  } ${d.isToday && !d.done ? 'ring-2 ring-pink' : ''} ${editPlan ? 'outline-1 outline-offset-2 outline-dashed outline-muted' : ''}`}
+                >
+                  {d.done ? <Check className="h-5 w-5" strokeWidth={3} /> : d.date.getDate()}
+                </span>
+                <span className={`h-3.5 w-full truncate px-0.5 text-center text-[11px] font-medium ${d.done ? 'text-pink' : 'text-muted'}`}>
+                  {d.done?.name ?? tpl?.name ?? ''}
+                </span>
+              </Tag>
+            );
+          })}
+        </div>
+      </Group>
+
+      {last && (
+        <Group title="Dernière séance" action={<button onClick={() => goTo('history')} className="text-[17px] text-pink active:opacity-50">Historique</button>}>
+          <button onClick={() => setDetailId(last.id)} className="flex w-full items-center gap-3 py-3 pl-4 pr-3 text-left active:bg-fill">
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[17px] font-semibold">{last.name}</div>
+              <div className="text-[15px] text-muted first-letter:uppercase">
+                {ago(last.startedAt)} · {sessionStats(last).sets} séries · {sessionStats(last).minutes} min
+              </div>
+            </div>
+            <ChevronRight className="h-4 w-4 text-faint" />
+          </button>
+        </Group>
+      )}
+
+      <Sheet open={planDay != null} onClose={() => setPlanDayOpen(null)} title={planDay != null ? DAY_NAMES[planDay] : ''}>
+        {planDay != null && (
+          <div className="overflow-hidden rounded-2xl bg-fill">
+            {[null, ...templates.map((t) => t.id)].map((id) => {
+              const current = tplById[plan[planDay]] ? plan[planDay] : null;
+              return (
+                <button
+                  key={id ?? 'rest'}
+                  onClick={() => {
+                    setPlanDay(planDay, id);
+                    setPlanDayOpen(null);
+                  }}
+                  className="sep flex h-12 w-full items-center justify-between px-4 text-[17px] active:bg-fill-hi"
+                >
+                  <span className={id ? '' : 'text-muted'}>{id ? tplById[id].name || 'Sans nom' : 'Repos'}</span>
+                  {current === id && <Check className="h-5 w-5 text-pink" strokeWidth={3} />}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </Sheet>
+
+      <SessionDetail session={mine.find((s) => s.id === detailId)} onClose={() => setDetailId(null)} />
+      <ProfileSheet open={profilesOpen} onClose={() => setProfilesOpen(false)} />
+    </Page>
+  );
+}

@@ -1,49 +1,55 @@
 import { useEffect, useState } from 'react';
-import Home from './components/Home';
+import History from './components/History';
+import Progress from './components/Progress';
 import SessionLogger from './components/SessionLogger';
+import TabBar from './components/TabBar';
+import Templates from './components/Templates';
+import { ToastProvider, useToast } from './components/Toast';
+import Today from './components/Today';
 import { StoreProvider, useStore } from './lib/store';
 
 export default function App() {
   return (
     <StoreProvider>
-      <Shell />
+      <ToastProvider>
+        <Shell />
+      </ToastProvider>
     </StoreProvider>
   );
 }
 
 function Shell() {
   const { state } = useStore();
+  const notify = useToast();
   const hasDraft = !!state.drafts[state.profileId];
   const [inSession, setInSession] = useState(hasDraft); // une séance en cours ? on y retourne direct
-  const [toast, setToast] = useState(null);
+  const [tab, setTab] = useState('today');
 
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, [inSession]);
-  useEffect(() => {
-    if (!toast) return;
-    const id = setTimeout(() => setToast(null), 4000);
-    return () => clearTimeout(id);
-  }, [toast]);
+  }, [inSession, tab]);
 
+  if (hasDraft && inSession) {
+    return (
+      <SessionLogger
+        onExit={() => setInSession(false)}
+        onFinished={({ sets, ups }) => {
+          setInSession(false);
+          setTab('today');
+          notify(sets ? `Séance enregistrée · ${sets} série${sets > 1 ? 's' : ''}${ups ? ` · ${ups} ▲` : ''}` : 'Séance vide abandonnée');
+        }}
+      />
+    );
+  }
+
+  const openSession = () => setInSession(true);
   return (
     <>
-      {hasDraft && inSession ? (
-        <SessionLogger
-          onExit={() => setInSession(false)}
-          onFinished={({ sets, ups }) => {
-            setInSession(false);
-            setToast(sets ? `Séance enregistrée · ${sets} séries${ups ? ` · ${ups} en progrès ▲` : ''}` : 'Séance vide abandonnée');
-          }}
-        />
-      ) : (
-        <Home onOpenSession={() => setInSession(true)} />
-      )}
-      {toast && (
-        <div role="status" className="fixed inset-x-0 bottom-6 z-50 mx-auto w-fit max-w-[90%] animate-sheet rounded-full bg-white px-5 py-3 text-[15px] font-semibold text-black shadow-[0_10px_40px_rgba(0,0,0,.6)]">
-          {toast}
-        </div>
-      )}
+      {tab === 'today' && <Today onOpenSession={openSession} goTo={setTab} />}
+      {tab === 'templates' && <Templates onOpenSession={openSession} />}
+      {tab === 'history' && <History />}
+      {tab === 'progress' && <Progress />}
+      <TabBar tab={tab} onChange={setTab} />
     </>
   );
 }

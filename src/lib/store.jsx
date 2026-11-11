@@ -1,11 +1,8 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { DEFAULT_REST, initialState, seedProfile, uid } from './defaults';
+import { CUSTOM_GROUP, DEFAULT_REST, initialState, migrate, seedProfile, templateFromModel, uid } from './defaults';
 
 const K_DATA = 'gymlog:data';
 const K_SESSIONS = 'gymlog:sessions'; // l'historique grossit : clé séparée, réécrite seulement quand il change
-
-// Point d'entrée unique pour faire évoluer le schéma sans casser les données existantes.
-const migrate = (s) => s;
 
 function load() {
   try {
@@ -83,7 +80,7 @@ export function StoreProvider({ children }) {
 
       addExercise: (name) => {
         const id = uid();
-        set((s) => ({ ...s, exercises: [...s.exercises, { id, name, inc: 2.5, rest: DEFAULT_REST }] }));
+        set((s) => ({ ...s, exercises: [...s.exercises, { id, name, group: CUSTOM_GROUP, inc: 2.5, rest: DEFAULT_REST }] }));
         return id;
       },
       setExerciseRest: (id, rest) =>
@@ -102,8 +99,26 @@ export function StoreProvider({ children }) {
           templates: s.templates.filter((t) => t.id !== id),
           plans: Object.fromEntries(Object.entries(s.plans).map(([p, plan]) => [p, plan.map((x) => (x === id ? null : x))])),
         })),
+      /** Annule une suppression : remet la séance type à sa place et dans le planning. */
+      restoreTemplate: ({ tpl, index, refs }) =>
+        set((s) => {
+          const templates = [...s.templates];
+          templates.splice(Math.min(index, templates.length), 0, tpl);
+          const plans = { ...s.plans };
+          for (const [pid, day] of refs) plans[pid] = (plans[pid] ?? Array(7).fill(null)).map((x, i) => (i === day && x == null ? tpl.id : x));
+          return { ...s, templates, plans };
+        }),
+      addTemplateFromModel: (name) => {
+        const id = uid();
+        set((s) => ({ ...s, templates: [...s.templates, { ...templateFromModel(s.profileId, name), id }] }));
+        return id;
+      },
       setPlanDay: (day, templateId) =>
         forProfile('plans', (plan = Array(7).fill(null)) => plan.map((x, i) => (i === day ? templateId : x))),
+
+      deleteSession: (id) => set((s) => ({ ...s, sessions: s.sessions.filter((x) => x.id !== id) })),
+      restoreSession: (session) =>
+        set((s) => ({ ...s, sessions: [...s.sessions, session].sort((a, b) => a.startedAt - b.startedAt) })),
 
       addProfile: (name) =>
         set((s) => {

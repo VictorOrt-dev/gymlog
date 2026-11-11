@@ -33,6 +33,7 @@
     right: 0;
     height: 0.5px;
     background: var(--color-line);
+    z-index: 1; /* au-dessus du fond des lignes glissables */
   }
 }
 
