@@ -1,8 +1,8 @@
 import { Play } from './Icons';
 
-/** Squelette d'un onglet : marges, zone sûre en haut, place pour la barre d'onglets en bas. */
+/** Squelette de l'écran principal : marges et zones sûres. */
 export const Page = ({ children }) => (
-  <div className="mx-auto min-h-dvh max-w-md px-4 pb-32 pt-[max(1.25rem,env(safe-area-inset-top))]">{children}</div>
+  <div className="mx-auto min-h-dvh max-w-md px-4 pb-16 pt-[max(1.25rem,env(safe-area-inset-top))]">{children}</div>
 );
 
 /** Grand titre façon iOS. */

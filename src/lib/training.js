@@ -40,6 +40,13 @@ export function target(prev, inc = 2.5) {
   return { w: top.w, r: top.r, why: "Échec la dernière fois : on égale" };
 }
 
+export const fmtInt = (n) => Math.round(n).toLocaleString('fr-FR');
+
+/** Tonnage = Σ poids × reps sur toutes les séries. Au poids du corps (0 kg), on compte les reps. */
+export const isBodyweight = (sets) => sets.length > 0 && sets.every((s) => s.w === 0);
+export const tonnage = (sets) => sets.reduce((a, s) => a + s.w * s.r, 0);
+export const totalReps = (sets) => sets.reduce((a, s) => a + s.r, 0);
+
 export const fmtW = (w) => (w > 0 ? String(round(w)).replace('.', ',') : 'PDC');
 export const fmtKg = (w) => (w > 0 ? `${fmtW(w)} kg` : 'PDC');
 export const fmtSet = (s) => `${fmtW(s.w)} × ${s.r}`;
@@ -69,3 +76,43 @@ export function ago(ts) {
   if (d < 14) return `il y a ${d} j`;
   return new Date(ts).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
 }
+
+/**
+ * Série « une valeur par séance » pour les graphiques de tonnage.
+ * Sans exercice : tonnage total de chaque séance. Avec : tonnage de l'exercice (ou reps au poids du corps).
+ */
+export function seriesFor(sessions, exerciseId = null) {
+  if (!exerciseId) {
+    return {
+      unit: 'kg',
+      bw: false,
+      global: true,
+      points: sessions.map((s) => ({ at: s.startedAt, value: s.items.reduce((a, it) => a + tonnage(it.sets), 0), session: s })),
+    };
+  }
+  const pts = [];
+  for (const s of sessions) {
+    const it = s.items.find((i) => i.exerciseId === exerciseId);
+    if (it?.sets.length) pts.push({ at: s.startedAt, sets: it.sets, session: s });
+  }
+  const bw = isBodyweight(pts.flatMap((p) => p.sets));
+  return { unit: bw ? 'reps' : 'kg', bw, points: pts.map((p) => ({ ...p, value: bw ? totalReps(p.sets) : tonnage(p.sets) })) };
+}
+
+/**
+ * Le point de comparaison d'une séance : la précédente pour un exercice,
+ * la dernière séance DU MÊME TYPE pour le tonnage global (un Push se compare à un Push, pas à un Legs).
+ */
+export function previousOf(series, point) {
+  const pts = series.points;
+  for (let j = pts.indexOf(point) - 1; j >= 0; j--) {
+    if (!series.global) return pts[j];
+    const a = pts[j].session;
+    const b = point.session;
+    if (b.templateId ? a.templateId === b.templateId : a.name === b.name) return pts[j];
+  }
+  return null;
+}
+
+/** Variation en % par rapport à la séance précédente (null s'il n'y en a pas). */
+export const pctChange = (cur, prev) => (prev > 0 ? Math.round(((cur - prev) / prev) * 100) : null);

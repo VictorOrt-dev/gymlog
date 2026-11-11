@@ -1,17 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useStore } from '../lib/store';
-import { fmtSet } from '../lib/training';
+import { fmtInt, fmtSet, tonnage } from '../lib/training';
 import Sheet from './Sheet';
 import { Stat } from './ui';
 
 export const sessionStats = (s) => {
   const sets = s.items.reduce((n, it) => n + it.sets.length, 0);
-  const volume = s.items.reduce((v, it) => v + it.sets.reduce((a, x) => a + x.w * x.r, 0), 0);
+  const volume = s.items.reduce((v, it) => v + tonnage(it.sets), 0);
   const minutes = Math.max(1, Math.round(((s.endedAt ?? s.startedAt) - s.startedAt) / 60e3));
   return { sets, volume, minutes };
 };
-
-export const fmtInt = (n) => Math.round(n).toLocaleString('fr-FR');
 
 /** Une séance passée, en lecture seule : chaque exercice, chaque série. */
 export default function SessionDetail({ session, onClose, onDelete }) {
@@ -41,7 +39,7 @@ export default function SessionDetail({ session, onClose, onDelete }) {
       <div className="mt-4 grid grid-cols-3 gap-2">
         <Stat label="Durée" value={`${minutes} min`} />
         <Stat label="Séries" value={sets} />
-        <Stat label="Volume" value={volume ? `${fmtInt(volume)} kg` : '—'} />
+        <Stat label="Tonnage" value={volume ? `${fmtInt(volume)} kg` : '—'} />
       </div>
 
       <div className="mt-5 space-y-3">

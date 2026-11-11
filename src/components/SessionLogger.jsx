@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { DEFAULT_REST } from '../lib/defaults';
 import { useNow, useRestTimer, useWakeLock } from '../lib/hooks';
 import { useStore } from '../lib/store';
-import { lastPerformances, mmss, trend } from '../lib/training';
+import { lastPerformances, mmss, pctChange, tonnage } from '../lib/training';
 import ExerciseCard from './ExerciseCard';
 import ExercisePicker from './ExercisePicker';
 import RestTimer from './RestTimer';
@@ -50,10 +50,13 @@ export default function SessionLogger({ onExit, onFinished }) {
 
   const finish = () => {
     if (!confirming) return setConfirming(true);
-    const ups = items.reduce((n, it) => n + it.sets.filter((s, i) => trend(s, last[it.exerciseId]?.sets[i]) === 'up').length, 0);
+    // Tonnage de la séance vs la dernière séance du même type : le chiffre qui motive
+    const kg = items.reduce((a, it) => a + tonnage(it.sets), 0);
+    const prev = state.sessions.filter((s) => s.profileId === state.profileId && draft.templateId && s.templateId === draft.templateId).at(-1);
+    const prevKg = prev ? prev.items.reduce((a, it) => a + tonnage(it.sets), 0) : 0;
     timer.stop();
     finishSession();
-    onFinished({ sets: total, ups });
+    onFinished({ sets: total, kg, pct: pctChange(kg, prevKg) });
   };
 
   return (

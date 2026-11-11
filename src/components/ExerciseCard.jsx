@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ago, fmtKg, fmtSet, summarize, target, trend } from '../lib/training';
+import { ago, fmtInt, fmtKg, fmtSet, isBodyweight, summarize, target, tonnage, totalReps, trend } from '../lib/training';
 import Stepper from './Stepper';
 import { Check } from './Icons';
 
@@ -9,7 +9,8 @@ const TREND = {
   eq: { sign: '=', cls: 'text-muted' },
   down: { sign: '▼', cls: 'text-muted' },
 };
-const COLS = 'grid-cols-[1.25rem_1fr_1.25rem_6.5rem]';
+const COLS = 'grid-cols-[1.25rem_1fr_1.25rem_6.75rem]';
+const rirText = (r) => `RIR ${r >= 4 ? '4+' : r}`;
 
 const toEntry = (s) => ({ w: s.w, r: s.r, rir: s.rir ?? 2 });
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -65,6 +66,11 @@ export default function ExerciseCard({ exercise, item, prev, open, onToggle, onA
 
   const rows = Math.max(n + 1, prevSets.length);
   const nextRef = prevSets[n];
+
+  // Tonnage de l'exercice : aujourd'hui vs la dernière fois (en reps au poids du corps)
+  const bw = isBodyweight([...sets, ...prevSets]);
+  const done = bw ? totalReps(sets) : tonnage(sets);
+  const goalTotal = bw ? totalReps(prevSets) : tonnage(prevSets);
 
   return (
     <section ref={ref} className="scroll-mt-20 overflow-hidden rounded-3xl bg-card">
@@ -126,7 +132,7 @@ export default function ExerciseCard({ exercise, item, prev, open, onToggle, onA
                     {s ? (
                       <>
                         <span className="font-num text-[17px] font-semibold tabular-nums">{fmtSet(s)}</span>
-                        {s.rir != null && <span className="ml-2 text-[13px] text-muted">RIR {s.rir >= 4 ? '4+' : s.rir}</span>}
+                        {s.rir != null && <span className="ml-2 text-[13px] text-muted">{rirText(s.rir)}</span>}
                       </>
                     ) : isNext ? (
                       <span className="text-[15px] font-semibold text-pink">{p ? 'À battre' : n ? 'Série bonus' : 'Pose ta référence'}</span>
@@ -135,13 +141,37 @@ export default function ExerciseCard({ exercise, item, prev, open, onToggle, onA
                     )}
                   </span>
                   <span className={`text-center text-[12px] ${t?.cls ?? ''}`}>{t?.sign}</span>
-                  <span className={`truncate text-right font-num tabular-nums ${isNext && p ? 'text-[17px] font-semibold text-white' : 'text-[15px] text-muted'}`}>
-                    {p ? fmtSet(p) : ''}
+                  <span className="flex min-w-0 flex-col items-end leading-tight">
+                    {p && (
+                      <>
+                        <span className={`truncate font-num tabular-nums ${isNext ? 'text-[17px] font-semibold text-white' : 'text-[15px] text-muted'}`}>{fmtSet(p)}</span>
+                        {p.rir != null && <span className={`text-[11px] ${isNext ? 'text-white/70' : 'text-faint'}`}>{rirText(p.rir)}</span>}
+                      </>
+                    )}
                   </span>
                 </button>
               );
             })}
           </div>
+
+          {/* Tonnage live : la jauge se remplit série après série jusqu'au total de la dernière fois */}
+          {goalTotal > 0 && (
+            <div className="mt-2 px-1">
+              <div className="flex items-baseline justify-between gap-2 text-[13px]">
+                <span className="font-medium text-muted">{bw ? 'Reps totales' : 'Tonnage'}</span>
+                <span className="font-num tabular-nums">
+                  {done > goalTotal && <span className="text-pink">▲ </span>}
+                  <span className="font-semibold text-white">{fmtInt(done)}</span>
+                  <span className="text-muted">
+                    {' '}/ {fmtInt(goalTotal)} {bw ? 'reps' : 'kg'} la dernière fois
+                  </span>
+                </span>
+              </div>
+              <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-fill">
+                <div className="h-full rounded-full bg-pink transition-[width] duration-300" style={{ width: `${Math.min(100, (done / goalTotal) * 100)}%` }} />
+              </div>
+            </div>
+          )}
 
           {/* Saisie : pré-remplie, ajustable au pouce */}
           <div className="mt-3 flex gap-2">

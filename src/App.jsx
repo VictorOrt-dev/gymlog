@@ -1,12 +1,9 @@
 import { useEffect, useState } from 'react';
-import History from './components/History';
-import Progress from './components/Progress';
+import Home from './components/Home';
 import SessionLogger from './components/SessionLogger';
-import TabBar from './components/TabBar';
-import Templates from './components/Templates';
 import { ToastProvider, useToast } from './components/Toast';
-import Today from './components/Today';
 import { StoreProvider, useStore } from './lib/store';
+import { fmtInt } from './lib/training';
 
 export default function App() {
   return (
@@ -18,38 +15,30 @@ export default function App() {
   );
 }
 
+/** Deux écrans, pas d'onglets : l'accueil, et la séance en cours. */
 function Shell() {
   const { state } = useStore();
   const notify = useToast();
   const hasDraft = !!state.drafts[state.profileId];
   const [inSession, setInSession] = useState(hasDraft); // une séance en cours ? on y retourne direct
-  const [tab, setTab] = useState('today');
 
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, [inSession, tab]);
+  }, [inSession]);
 
   if (hasDraft && inSession) {
     return (
       <SessionLogger
         onExit={() => setInSession(false)}
-        onFinished={({ sets, ups }) => {
+        onFinished={({ sets, kg, pct }) => {
           setInSession(false);
-          setTab('today');
-          notify(sets ? `Séance enregistrée · ${sets} série${sets > 1 ? 's' : ''}${ups ? ` · ${ups} ▲` : ''}` : 'Séance vide abandonnée');
+          if (!sets) return notify('Séance vide abandonnée');
+          const change = pct == null ? '' : pct > 0 ? ` · ▲ +${pct} %` : pct < 0 ? ` · ▼ ${pct} %` : ' · =';
+          notify(kg ? `Bravo · ${fmtInt(kg)} kg soulevés${change}` : `Séance enregistrée · ${sets} série${sets > 1 ? 's' : ''}`);
         }}
       />
     );
   }
 
-  const openSession = () => setInSession(true);
-  return (
-    <>
-      {tab === 'today' && <Today onOpenSession={openSession} goTo={setTab} />}
-      {tab === 'templates' && <Templates onOpenSession={openSession} />}
-      {tab === 'history' && <History />}
-      {tab === 'progress' && <Progress />}
-      <TabBar tab={tab} onChange={setTab} />
-    </>
-  );
+  return <Home onOpenSession={() => setInSession(true)} />;
 }

@@ -1,11 +1,16 @@
 import { useMemo, useState } from 'react';
+import { MODELS, uid } from '../lib/defaults';
 import { useStore } from '../lib/store';
-import { ago } from '../lib/training';
 import ProfileSheet, { isExportStale } from './ProfileSheet';
-import SessionDetail, { sessionStats } from './SessionDetail';
+import ProgressSection from './ProgressSection';
+import SessionDetail from './SessionDetail';
 import Sheet from './Sheet';
-import { Check, ChevronRight } from './Icons';
-import { Avatar, Group, LargeTitle, Page, PrimaryButton, SecondaryButton } from './ui';
+import SwipeRow from './SwipeRow';
+import TemplateEditor from './TemplateEditor';
+import TonnageDetail from './TonnageDetail';
+import { useToast } from './Toast';
+import { Check, Plus } from './Icons';
+import { Avatar, Group, LargeTitle, Page, PlayButton, PrimaryButton } from './ui';
 
 const DAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 const DAY_NAMES = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
@@ -27,9 +32,13 @@ function useWeek(sessions) {
   }, [sessions]);
 }
 
-/** Onglet « Aujourd'hui » : ce qu'il faut faire maintenant, et la semaine d'un coup d'œil. */
-export default function Today({ onOpenSession, goTo }) {
-  const { state, startSession, setPlanDay } = useStore();
+/**
+ * L'écran principal, et le seul : pas d'onglets.
+ * De haut en bas, par fréquence d'usage : la séance du jour → la semaine → la progression → mes séances.
+ */
+export default function Home({ onOpenSession }) {
+  const { state, startSession, setPlanDay, saveTemplate, deleteTemplate, restoreTemplate, addTemplateFromModel } = useStore();
+  const notify = useToast();
   const pid = state.profileId;
   const profile = state.profiles.find((p) => p.id === pid) ?? state.profiles[0];
   const draft = state.drafts[pid];
@@ -44,18 +53,36 @@ export default function Today({ onOpenSession, goTo }) {
   const [planDay, setPlanDayOpen] = useState(null);
   const [detailId, setDetailId] = useState(null);
   const [profilesOpen, setProfilesOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [tonnageOf, setTonnageOf] = useState(undefined); // undefined = fermé, null = toutes les séances, id = un exercice
 
   const today = week.find((d) => d.isToday);
   const todayTpl = tplById[plan[today.i]];
   const doneCount = week.filter((d) => d.done).length;
   const plannedCount = plan.filter((x) => tplById[x]).length;
-  const last = mine.at(-1);
-  const preview = (t) => t.exerciseIds.map((id) => exName[id]).filter(Boolean).join(' · ');
+  const preview = (ids) => ids.map((id) => exName[id]).filter(Boolean).join(' · ');
   const dateLabel = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 
   const start = (templateId) => {
     startSession(templateId);
     onOpenSession();
+  };
+  const createFrom = (model) => {
+    let id;
+    if (model) id = addTemplateFromModel(model);
+    else {
+      id = uid();
+      saveTemplate({ id, profileId: pid, name: 'Nouvelle séance', exerciseIds: [] });
+    }
+    setCreating(false);
+    setEditingId(id);
+  };
+  const remove = (t) => {
+    const index = state.templates.findIndex((x) => x.id === t.id);
+    const refs = Object.entries(state.plans).flatMap(([p, pl]) => pl.flatMap((x, day) => (x === t.id ? [[p, day]] : [])));
+    deleteTemplate(t.id);
+    notify(`« ${t.name || 'Séance'} » supprimée`, () => restoreTemplate({ tpl: t, index, refs }));
   };
 
   return (
@@ -71,7 +98,7 @@ export default function Today({ onOpenSession, goTo }) {
         }
       />
 
-      {/* Une carte, une action. */}
+      {/* 1. Une carte, une action */}
       <div className="mt-5 rounded-3xl bg-card p-5">
         {draft ? (
           <>
@@ -87,7 +114,7 @@ export default function Today({ onOpenSession, goTo }) {
           <>
             <p className="text-[13px] font-semibold text-muted">Au programme</p>
             <p className="mt-1 truncate text-[28px] font-bold leading-tight tracking-tight">{todayTpl.name || 'Séance'}</p>
-            <p className="mt-1 line-clamp-2 text-[15px] text-muted">{preview(todayTpl) || 'Aucun exercice pour l’instant'}</p>
+            <p className="mt-1 line-clamp-2 text-[15px] text-muted">{preview(todayTpl.exerciseIds) || 'Aucun exercice pour l’instant'}</p>
             <PrimaryButton onClick={() => start(todayTpl.id)}>Commencer</PrimaryButton>
           </>
         ) : (
@@ -95,14 +122,13 @@ export default function Today({ onOpenSession, goTo }) {
             <p className={`text-[13px] font-semibold ${today.done ? 'text-pink' : 'text-muted'}`}>{today.done ? 'Terminé' : 'Au programme'}</p>
             <p className="mt-1 text-[28px] font-bold leading-tight tracking-tight">{today.done ? 'Séance faite' : 'Repos'}</p>
             <p className="mt-1 text-[15px] text-muted">
-              {today.done ? 'Mange, dors, reviens plus fort.' : 'La récupération fait partie du programme.'}
+              {today.done ? 'Mange, dors, reviens plus fort.' : 'La récupération fait partie du programme. Envie quand même ? Choisis une séance plus bas.'}
             </p>
-            <SecondaryButton onClick={() => goTo('templates')}>{today.done ? 'Faire une autre séance' : 'Choisir une séance quand même'}</SecondaryButton>
           </>
         )}
       </div>
 
-      {/* Semaine : fréquence et jours off d'un coup d'œil */}
+      {/* 2. La semaine : fréquence et jours off d'un coup d'œil */}
       <Group
         title="Cette semaine"
         action={
@@ -136,19 +162,62 @@ export default function Today({ onOpenSession, goTo }) {
         </div>
       </Group>
 
-      {last && (
-        <Group title="Dernière séance" action={<button onClick={() => goTo('history')} className="text-[17px] text-pink active:opacity-50">Historique</button>}>
-          <button onClick={() => setDetailId(last.id)} className="flex w-full items-center gap-3 py-3 pl-4 pr-3 text-left active:bg-fill">
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-[17px] font-semibold">{last.name}</div>
-              <div className="text-[15px] text-muted first-letter:uppercase">
-                {ago(last.startedAt)} · {sessionStats(last).sets} séries · {sessionStats(last).minutes} min
-              </div>
+      {/* 3. Progression : le tonnage, cliquable */}
+      <ProgressSection onOpen={setTonnageOf} />
+
+      {/* 4. Mes séances : démarrer, modifier, glisser pour supprimer */}
+      <Group
+        title="Mes séances"
+        footer={templates.length ? 'Touche une séance pour la modifier. Glisse-la vers la gauche pour la supprimer.' : null}
+      >
+        {templates.map((t) => (
+          <SwipeRow key={t.id} className="sep" onDelete={() => remove(t)}>
+            <div className="flex items-center gap-3 pr-3">
+              <button onClick={() => setEditingId(t.id)} className="min-w-0 flex-1 py-3 pl-4 text-left">
+                <div className="truncate text-[17px] font-semibold">{t.name || 'Sans nom'}</div>
+                <div className="truncate text-[15px] text-muted">
+                  {t.exerciseIds.length ? `${t.exerciseIds.length} exercices · ${preview(t.exerciseIds)}` : 'Touche pour ajouter des exercices'}
+                </div>
+              </button>
+              <PlayButton label={`Démarrer ${t.name}`} onClick={() => start(t.id)} disabled={!!draft} />
             </div>
-            <ChevronRight className="h-4 w-4 text-faint" />
+          </SwipeRow>
+        ))}
+        <div className="sep flex items-center gap-3 pr-3">
+          <div className="min-w-0 flex-1 py-3 pl-4">
+            <div className="text-[17px] font-semibold">Séance libre</div>
+            <div className="truncate text-[15px] text-muted">Sans programme, ajoute les exercices au fil de l’eau</div>
+          </div>
+          <PlayButton label="Démarrer une séance libre" onClick={() => start(null)} disabled={!!draft} />
+        </div>
+        <button onClick={() => setCreating(true)} className="sep flex h-12 w-full items-center gap-2 px-4 text-[17px] text-pink active:opacity-50">
+          <Plus className="h-5 w-5" /> Créer une séance
+        </button>
+      </Group>
+
+      {/* Feuilles et vues détaillées */}
+      <Sheet open={creating} onClose={() => setCreating(false)} title="Nouvelle séance">
+        <div className="overflow-hidden rounded-2xl bg-fill">
+          <button onClick={() => createFrom(null)} className="sep flex w-full items-center gap-3 px-4 py-3 text-left active:bg-fill-hi">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-pink text-white">
+              <Plus className="h-5 w-5" />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-[17px] font-semibold">Séance vide</span>
+              <span className="block text-[15px] text-muted">Tu choisis tes exercices</span>
+            </span>
           </button>
-        </Group>
-      )}
+        </div>
+        <h3 className="mb-2 mt-6 px-1 text-[15px] font-semibold text-muted">Ou pars d’un modèle, modifiable ensuite</h3>
+        <div className="overflow-hidden rounded-2xl bg-fill">
+          {MODELS.map(([name, exercises]) => (
+            <button key={name} onClick={() => createFrom(name)} className="sep flex w-full flex-col px-4 py-3 text-left active:bg-fill-hi">
+              <span className="text-[17px] font-semibold">{name}</span>
+              <span className="truncate text-[15px] text-muted">{exercises.join(' · ')}</span>
+            </button>
+          ))}
+        </div>
+      </Sheet>
 
       <Sheet open={planDay != null} onClose={() => setPlanDayOpen(null)} title={planDay != null ? DAY_NAMES[planDay] : ''}>
         {planDay != null && (
@@ -173,8 +242,10 @@ export default function Today({ onOpenSession, goTo }) {
         )}
       </Sheet>
 
+      <TemplateEditor template={templates.find((t) => t.id === editingId)} onClose={() => setEditingId(null)} />
       <SessionDetail session={mine.find((s) => s.id === detailId)} onClose={() => setDetailId(null)} />
       <ProfileSheet open={profilesOpen} onClose={() => setProfilesOpen(false)} />
+      <TonnageDetail exerciseId={tonnageOf} onClose={() => setTonnageOf(undefined)} />
     </Page>
   );
 }
