@@ -35,7 +35,7 @@ export function niceTicks(min, max, count = 3) {
 const fmtShort = (ts) => new Date(ts).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
 
 /** iOS segmented control. */
-export function Segmented({ options, value, onChange, label, size = 'h-9 text-[15px]' }) {
+export function Segmented({ options, value, onChange, label, size = 'h-11 text-[15px]' }) {
   return (
     <div role="radiogroup" aria-label={label} className="grid gap-0.5 rounded-xl bg-fill p-0.5" style={{ gridTemplateColumns: `repeat(${options.length}, 1fr)` }}>
       {options.map(([key, text]) => (

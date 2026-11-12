@@ -88,8 +88,8 @@ export default function Home({ onOpenSession }) {
         title="Aujourd'hui"
         subtitle={dateLabel}
         right={
-          <button onClick={() => setProfilesOpen(true)} aria-label={`Profil : ${profile.name}`} className="relative mb-1.5 active:opacity-60">
-            <Avatar name={profile.name} className="h-10 w-10 bg-fill-hi text-[17px]" />
+          <button onClick={() => setProfilesOpen(true)} aria-label={`Profil : ${profile.name}`} className="relative mb-1 active:opacity-60">
+            <Avatar name={profile.name} className="h-11 w-11 bg-fill-hi text-[17px]" />
             {isExportStale(state) && <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full bg-pink ring-2 ring-black" />}
           </button>
         }
@@ -129,7 +129,7 @@ export default function Home({ onOpenSession }) {
       <Group
         title="Cette semaine"
         action={
-          <button onClick={() => setEditPlan(!editPlan)} className="text-[17px] text-pink active:opacity-50">
+          <button onClick={() => setEditPlan(!editPlan)} className="-my-3 h-11 px-1 text-[17px] text-pink active:opacity-50">
             {editPlan ? 'OK' : 'Modifier'}
           </button>
         }

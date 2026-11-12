@@ -21,7 +21,7 @@ export function ToastProvider({ children }) {
           key={toast.id}
           role="status"
           style={{ bottom: 'calc(env(safe-area-inset-bottom) + 76px)' }}
-          className={`fixed inset-x-0 z-[70] mx-auto flex w-fit max-w-[92%] animate-sheet items-center gap-3 rounded-full bg-white py-3 pl-5 text-[15px] font-semibold text-black shadow-[0_10px_40px_rgba(0,0,0,.6)] ${toast.undo ? 'pr-2' : 'pr-5'}`}
+          className={`fixed inset-x-0 z-[70] mx-auto flex w-fit max-w-[92%] animate-sheet items-center gap-3 rounded-full bg-white py-3 pl-5 text-[15px] font-semibold text-black shadow-[0_10px_40px_rgba(0,0,0,.6)] ${toast.undo ? 'py-1.5 pr-1.5' : 'pr-5'}`}
         >
           <span className="min-w-0">{toast.text}</span>
           {toast.undo && (
@@ -30,7 +30,7 @@ export function ToastProvider({ children }) {
                 toast.undo();
                 setToast(null);
               }}
-              className="shrink-0 rounded-full px-3 py-1 text-pink active:opacity-50"
+              className="h-11 shrink-0 rounded-full px-3 text-pink active:opacity-50"
             >
               Annuler
             </button>

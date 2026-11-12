@@ -59,7 +59,7 @@ export default function SessionLogger({ onExit, onFinished }) {
 
   return (
     <div className="min-h-dvh pb-32">
-      <header className="sticky top-0 z-30 border-b-[0.5px] border-line/70 bg-black/80 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
+      <header className="sticky top-[var(--banner-h,0px)] z-30 border-b-[0.5px] border-line/70 bg-black/80 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
         <div className="mx-auto grid h-14 max-w-md grid-cols-[1fr_auto_1fr] items-center px-2">
           <button onClick={onExit} aria-label="Retour à l'accueil (la séance reste en cours)" className="flex h-11 items-center justify-self-start pr-2 text-[17px] text-pink active:opacity-50">
             <Back className="h-6 w-6" strokeWidth={2.5} />
@@ -73,14 +73,14 @@ export default function SessionLogger({ onExit, onFinished }) {
           </div>
           <button
             onClick={finish}
-            className={`h-9 justify-self-end rounded-full px-3.5 text-[17px] font-semibold ${confirming ? 'bg-pink text-white' : 'text-pink active:opacity-50'}`}
+            className={`h-11 justify-self-end rounded-full px-4 text-[17px] font-semibold ${confirming ? 'bg-pink text-white' : 'text-pink active:opacity-50'}`}
           >
             {confirming ? (total ? 'Confirmer' : 'Abandonner') : 'Terminer'}
           </button>
         </div>
       </header>
 
-      <main className="mx-auto max-w-md space-y-3 px-4 pt-3">
+      <main className="mx-auto max-w-md space-y-3 px-3 pt-3">
         {items.map((it, i) => (
           <ExerciseCard
             key={it.exerciseId}

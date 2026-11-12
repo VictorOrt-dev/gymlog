@@ -105,7 +105,7 @@ export default function ProgressDetail({ exerciseId, onClose }) {
 
         <div className="mt-4 space-y-2">
           <Segmented label="Indicateur" options={[['best', series.bw ? 'Reps max' : 'Force'], ['effective', series.bw ? 'Reps de travail' : 'Tonnage effectif']]} value={metric} onChange={reset(setMetric)} />
-          <Segmented label="Période" options={RANGES.map(([k, t]) => [k, t])} value={range} onChange={reset(setRange)} size="h-8 text-[13px]" />
+          <Segmented label="Période" options={RANGES.map(([k, t]) => [k, t])} value={range} onChange={reset(setRange)} size="h-11 text-[13px]" />
         </div>
 
         <section className="mt-3 rounded-3xl bg-card p-4">

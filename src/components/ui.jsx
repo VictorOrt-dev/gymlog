@@ -47,7 +47,7 @@ export const PlayButton = ({ label, onClick, disabled }) => (
     onClick={onClick}
     disabled={disabled}
     aria-label={label}
-    className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-pink/15 text-pink active:opacity-60 disabled:opacity-30"
+    className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-pink/15 text-pink active:opacity-60 disabled:opacity-30"
   >
     <Play className="h-4 w-4 translate-x-px" />
   </button>

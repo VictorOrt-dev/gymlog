@@ -72,7 +72,7 @@ export default function ExercisePicker({ open, onClose, onPick, exclude = [] }) 
             className="min-w-0 flex-1 bg-transparent text-[17px] outline-none placeholder:text-muted"
           />
         </label>
-        <button type="button" onClick={close} className="text-[17px] text-pink active:opacity-50">
+        <button type="button" onClick={close} className="h-11 px-1 text-[17px] text-pink active:opacity-50">
           Annuler
         </button>
       </form>

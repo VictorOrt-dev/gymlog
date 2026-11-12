@@ -30,20 +30,54 @@ export default function ExerciseCard({ exercise, item, prev, open, onToggle, onA
 
   const [entry, setEntry] = useState(() => (sets.length ? toEntry(sets.at(-1)) : goal ? { w: goal.w, r: goal.r, rir: 2 } : { w: 20, r: 10, rir: 2 }));
   const [editing, setEditing] = useState(null); // index de la série en correction
+  const [flash, setFlash] = useState(null); // ligne qui vient d'être enregistrée (retour visuel)
+  const [saved, setSaved] = useState(0); // compteur qui relance l'animation du bouton
   const ref = useRef(null);
+  const validateRef = useRef(null);
+
+  /**
+   * Cadrage : on montre le haut de la carte, MAIS le bouton Valider doit rester au-dessus du chrono.
+   * Sur petit écran (iPhone SE), on sacrifie le titre plutôt que le bouton.
+   */
+  const reveal = (smooth = true) => {
+    const card = ref.current;
+    const btn = validateRef.current;
+    if (!card || !btn) return;
+    const header = 64 + parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--banner-h') || 0);
+    const bottomSafe = window.innerHeight - 92; // capsule du chrono + marge
+    const top = window.scrollY + card.getBoundingClientRect().top - header - 8;
+    const btnBottom = window.scrollY + btn.getBoundingClientRect().bottom;
+    const needed = btnBottom - bottomSafe;
+    window.scrollTo({ top: Math.max(0, needed > top ? needed : top), behavior: smooth ? 'smooth' : 'auto' });
+  };
 
   useEffect(() => {
-    if (open) ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, [open]);
+    if (open) requestAnimationFrame(() => reveal());
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Après chaque série, la carte grandit d'une ligne : on garde Valider visible.
+  useEffect(() => {
+    if (!open || !validateRef.current) return;
+    if (validateRef.current.getBoundingClientRect().bottom > window.innerHeight - 92) reveal();
+  }, [n]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (flash == null) return;
+    const id = setTimeout(() => setFlash(null), 900);
+    return () => clearTimeout(id);
+  }, [flash]);
 
   const submit = () => {
     const set = { w: entry.w, r: entry.r, rir: entry.rir };
     if (editing == null) {
       onAdd(set);
-      navigator.vibrate?.(12);
+      navigator.vibrate?.(12); // Android ; sur iPhone, le retour est visuel (ligne + bouton)
+      setFlash(n);
+      setSaved((k) => k + 1);
       return; // les champs gardent les valeurs : la série suivante est souvent identique
     }
     onUpdate(editing, set);
+    setFlash(editing);
     setEntry(toEntry(editing === n - 1 ? set : sets[n - 1]));
     setEditing(null);
   };
@@ -76,7 +110,7 @@ export default function ExerciseCard({ exercise, item, prev, open, onToggle, onA
   return (
     <section ref={ref} className="scroll-mt-20 overflow-hidden rounded-3xl bg-card">
       {/* En-tête : toujours tapable pour ouvrir / fermer */}
-      <button onClick={onToggle} aria-expanded={open} className="flex w-full items-center gap-3 px-4 py-3.5 text-left">
+      <button onClick={onToggle} aria-expanded={open} className="flex min-h-14 w-full items-center gap-3 px-3.5 py-3 text-left">
         <div className="min-w-0 flex-1">
           <div className={`truncate tracking-tight ${open ? 'text-[22px] font-bold' : 'text-[17px] font-semibold'}`}>{exercise.name}</div>
           {!open && (
@@ -93,7 +127,7 @@ export default function ExerciseCard({ exercise, item, prev, open, onToggle, onA
       </button>
 
       {open && (
-        <div className="px-4 pb-4">
+        <div className="@container px-3.5 pb-4">
           {/* Objectif du jour, avant la 1re série */}
           {n === 0 && goal && (
             <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl bg-pink/12 px-4 py-2.5">
@@ -126,7 +160,7 @@ export default function ExerciseCard({ exercise, item, prev, open, onToggle, onA
                   type="button"
                   disabled={!s}
                   onClick={() => edit(i)}
-                  className={`grid h-11 w-full ${COLS} items-center gap-2 px-1 text-left ${editing === i ? 'rounded-xl bg-fill' : 'sep [--sep-inset:0.25rem]'}`}
+                  className={`grid h-11 w-full ${COLS} items-center gap-2 rounded-xl px-1 text-left ${editing === i ? 'bg-fill' : 'sep [--sep-inset:0.25rem]'} ${flash === i ? 'animate-set-in' : ''}`}
                 >
                   <span className="font-num text-[13px] font-medium tabular-nums text-faint">{i + 1}</span>
                   <span className="truncate">
@@ -175,13 +209,14 @@ export default function ExerciseCard({ exercise, item, prev, open, onToggle, onA
           )}
 
           {/* Saisie : pré-remplie, ajustable au pouce */}
-          <div className="mt-3 flex gap-2">
-            <Stepper label="kg" value={entry.w} step={exercise.inc} decimal onChange={(w) => setEntry((e) => ({ ...e, w }))} className="flex-[1.35]" />
-            <Stepper label="reps" value={entry.r} step={1} min={1} onChange={(r) => setEntry((e) => ({ ...e, r }))} className="flex-1" />
+          {/* Côte à côte si la carte est assez large, l'un sous l'autre sinon (iPhone SE) : jamais de chiffre coupé */}
+          <div className="mt-3 flex flex-col gap-2 @[20rem]:flex-row">
+            <Stepper label="kg" value={entry.w} step={exercise.inc} decimal onChange={(w) => setEntry((e) => ({ ...e, w }))} className="@[20rem]:flex-[1.2]" />
+            <Stepper label="reps" value={entry.r} step={1} min={1} onChange={(r) => setEntry((e) => ({ ...e, r }))} className="@[20rem]:flex-1" />
           </div>
 
-          <div className="mt-2 flex items-center gap-3">
-            <span className="w-[4.5rem] shrink-0 pl-1 text-[12px] font-medium leading-tight text-muted">Reps en réserve</span>
+          <div className="mt-2 flex flex-col gap-1.5 @[20rem]:flex-row @[20rem]:items-center @[20rem]:gap-3">
+            <span className="shrink-0 pl-1 text-[12px] font-medium leading-tight text-muted @[20rem]:w-[4.5rem]">Reps en réserve</span>
             <div className="grid flex-1 grid-cols-5 gap-0.5 rounded-xl bg-fill p-0.5" role="radiogroup" aria-label="Reps en réserve (RIR)">
               {RIRS.map((v) => (
                 <button
@@ -190,7 +225,7 @@ export default function ExerciseCard({ exercise, item, prev, open, onToggle, onA
                   role="radio"
                   aria-checked={entry.rir === v}
                   onClick={() => setEntry((e) => ({ ...e, rir: v }))}
-                  className={`h-10 rounded-[10px] font-num text-[15px] font-semibold tabular-nums ${entry.rir === v ? 'bg-seg text-white shadow-sm' : 'text-muted'}`}
+                  className={`h-11 rounded-[10px] font-num text-[15px] font-semibold tabular-nums transition-colors ${entry.rir === v ? 'bg-seg text-white shadow-sm' : 'text-muted active:text-white'}`}
                 >
                   {v === 4 ? '4+' : v}
                 </button>
@@ -199,10 +234,13 @@ export default function ExerciseCard({ exercise, item, prev, open, onToggle, onA
           </div>
 
           <button
+            key={saved}
+            ref={validateRef}
             type="button"
             onClick={submit}
-            className="mt-3 flex h-14 w-full items-center justify-center gap-2 rounded-full bg-pink text-[17px] font-semibold text-white active:opacity-80"
+            className={`mt-3 flex h-14 w-full items-center justify-center gap-2 rounded-full bg-pink text-[17px] font-semibold text-white transition-transform active:scale-[.97] ${saved ? 'animate-pop' : ''}`}
           >
+            {flash != null && editing == null && <Check className="h-5 w-5" strokeWidth={3} />}
             {editing == null ? `Valider la série ${n + 1}` : `Corriger la série ${editing + 1}`}
             {editing == null && nextRef && trend(entry, nextRef) === 'up' && (
               <span className="rounded-full bg-white/20 px-2 py-0.5 text-[12px] font-semibold">▲ Progrès</span>
@@ -221,7 +259,7 @@ export default function ExerciseCard({ exercise, item, prev, open, onToggle, onA
           )}
 
           {n === 0 && (
-            <button type="button" onClick={onRemove} className="mt-2 w-full py-2 text-[15px] text-muted active:opacity-50">
+            <button type="button" onClick={onRemove} className="mt-1 h-11 w-full text-[15px] text-muted active:opacity-50">
               Retirer cet exercice
             </button>
           )}

@@ -19,7 +19,7 @@ export default function TemplateEditor({ template, onClose }) {
     [next[i - 1], next[i]] = [next[i], next[i - 1]];
     update({ exerciseIds: next });
   };
-  const iconBtn = 'grid h-10 w-10 place-items-center rounded-full text-muted active:bg-fill-hi';
+  const iconBtn = 'grid h-11 w-11 place-items-center rounded-full text-muted active:bg-fill-hi';
 
   return (
     <>

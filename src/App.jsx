@@ -3,6 +3,7 @@ import Home from './components/Home';
 import ProgressTab from './components/ProgressTab';
 import TabBar from './components/TabBar';
 import SessionLogger from './components/SessionLogger';
+import StorageAlert from './components/StorageAlert';
 import { ToastProvider, useToast } from './components/Toast';
 import { StoreProvider, useStore } from './lib/store';
 
@@ -10,6 +11,7 @@ export default function App() {
   return (
     <StoreProvider>
       <ToastProvider>
+        <StorageAlert />
         <Shell />
       </ToastProvider>
     </StoreProvider>

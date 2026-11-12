@@ -18,9 +18,12 @@ const Ctx = createContext(null);
 
 export function StoreProvider({ children }) {
   const [state, setState] = useState(load);
+  const [storageError, setStorageError] = useState(null); // 'quota' | 'unavailable' | null
   const savedSessions = useRef(state.sessions);
   const current = useRef(state);
 
+  // Chaque changement est écrit tout de suite. Si l'écriture échoue (stockage plein, navigation privée),
+  // on ne se tait pas : storageError déclenche une alerte visible avec un bouton d'export.
   useEffect(() => {
     current.current = state;
     const { sessions, ...data } = state;
@@ -30,8 +33,11 @@ export function StoreProvider({ children }) {
         localStorage.setItem(K_SESSIONS, JSON.stringify(sessions));
         savedSessions.current = sessions;
       }
+      setStorageError(null);
     } catch (e) {
-      console.error('GymLog : écriture impossible (stockage plein ?)', e);
+      const quota = e?.name === 'QuotaExceededError' || e?.code === 22 || e?.code === 1014;
+      console.error('GymLog : écriture impossible', e);
+      setStorageError(quota ? 'quota' : 'unavailable');
     }
   }, [state]);
 
@@ -146,7 +152,7 @@ export function StoreProvider({ children }) {
     };
   }, []);
 
-  return <Ctx.Provider value={{ state, ...actions }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ state, storageError, ...actions }}>{children}</Ctx.Provider>;
 }
 
 export const useStore = () => useContext(Ctx);

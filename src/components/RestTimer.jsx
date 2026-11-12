@@ -3,7 +3,7 @@ import { mmss } from '../lib/training';
 import { Close } from './Icons';
 
 const PRESETS = [60, 90, 120, 180, 240];
-const WRAP = 'fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(.75rem,env(safe-area-inset-bottom))]';
+const WRAP = 'fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(.75rem,env(safe-area-inset-bottom))]';
 const CAPSULE = 'mx-auto max-w-md rounded-full bg-card/90 shadow-[0_10px_40px_rgba(0,0,0,.7)] ring-[0.5px] ring-white/10 backdrop-blur-xl';
 
 /**
@@ -20,12 +20,12 @@ export default function RestTimer({ timer, current, onPreset }) {
     return (
       <div className={WRAP}>
         <div className={`${CAPSULE} flex h-14 items-center gap-0.5 px-1.5`}>
-          <span className="pl-3 pr-1 text-[13px] font-medium text-muted">Repos</span>
+          <span className="pl-3 pr-1 text-[13px] font-medium text-muted max-[374px]:hidden">Repos</span>
           {PRESETS.map((s) => (
             <button
               key={s}
               onClick={() => onPreset(s)}
-              className={`h-10 flex-1 rounded-full font-num text-[15px] font-semibold tabular-nums ${s === current ? 'bg-fill-hi text-white' : 'text-muted active:text-white'}`}
+              className={`h-11 min-w-0 flex-1 rounded-full font-num text-[15px] font-semibold tabular-nums ${s === current ? 'bg-fill-hi text-white' : 'text-muted active:text-white'}`}
             >
               {mmss(s)}
             </button>
