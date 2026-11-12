@@ -18,6 +18,7 @@
   --animate-sheet: sheet-up 0.24s cubic-bezier(0.2, 0.9, 0.3, 1);
   --animate-set-in: set-in 0.9s cubic-bezier(0.2, 0.9, 0.3, 1);
   --animate-pop: pop 0.36s cubic-bezier(0.3, 1.6, 0.5, 1);
+  --animate-rest-flash: rest-flash 0.7s ease-in-out 4;
 
   @keyframes sheet-up {
     from { transform: translateY(24px); opacity: 0; }
@@ -27,6 +28,11 @@
     0% { background-color: color-mix(in oklab, var(--color-pink) 38%, transparent); transform: scale(0.98); }
     35% { transform: scale(1); }
     100% { background-color: transparent; }
+  }
+  /* Fin du repos : tout l'écran clignote en rose, visible à 2 mètres */
+  @keyframes rest-flash {
+    0%, 100% { opacity: 0; }
+    50% { opacity: 1; }
   }
   /* Le bouton répond au doigt : petit rebond */
   @keyframes pop {

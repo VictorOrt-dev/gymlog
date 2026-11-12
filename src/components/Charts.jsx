@@ -61,7 +61,7 @@ const fmtDate = fmtShort;
 export function LineChart({ points, active, onActive, format, label }) {
   const [ref, w] = useWidth();
   const H = 200;
-  const pad = { l: 6, r: 46, t: 14, b: 26 };
+  const pad = { l: 6, r: 50, t: 14, b: 28 };
   const ys = points.map((p) => p.y);
   const { lo, hi, ticks } = niceTicks(Math.min(...ys), Math.max(...ys), 3);
   let x0 = points[0].x;
@@ -114,7 +114,7 @@ export function LineChart({ points, active, onActive, format, label }) {
           {ticks.map((t) => (
             <g key={t}>
               <line x1={pad.l} x2={pad.l + iw} y1={sy(t)} y2={sy(t)} stroke="var(--color-line)" strokeWidth={1} />
-              <text x={pad.l + iw + 8} y={sy(t)} dy="0.35em" className="fill-muted text-[11px] tabular-nums">
+              <text x={pad.l + iw + 8} y={sy(t)} dy="0.35em" className="fill-muted text-[13px] tabular-nums">
                 {format(t)}
               </text>
             </g>
@@ -125,11 +125,11 @@ export function LineChart({ points, active, onActive, format, label }) {
           {points.length <= 16 &&
             points.map((p, i) => i !== a && <circle key={i} cx={sx(p.x)} cy={sy(p.y)} r={4} fill="var(--color-pink)" stroke="var(--color-card)" strokeWidth={2} />)}
           <circle cx={sx(points[a].x)} cy={sy(points[a].y)} r={6} fill="var(--color-pink)" stroke="var(--color-card)" strokeWidth={2.5} />
-          <text x={sx(points[0].x)} y={H - 7} textAnchor={points.length > 1 ? 'start' : 'middle'} className="fill-muted text-[11px]">
+          <text x={sx(points[0].x)} y={H - 7} textAnchor={points.length > 1 ? 'start' : 'middle'} className="fill-muted text-[13px]">
             {fmtDate(points[0].x)}
           </text>
           {points.length > 1 && (
-            <text x={sx(points.at(-1).x)} y={H - 7} textAnchor="end" className="fill-muted text-[11px]">
+            <text x={sx(points.at(-1).x)} y={H - 7} textAnchor="end" className="fill-muted text-[13px]">
               {fmtDate(points.at(-1).x)}
             </text>
           )}

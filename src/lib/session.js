@@ -57,3 +57,26 @@ export function replaceItem(draft, i, exerciseId) {
 export function removeItem(draft, i) {
   return { ...draft, items: draft.items.filter((_, j) => j !== i), open: -1 };
 }
+
+/**
+ * Retouche d'une séance terminée. `patch` = nouvelles valeurs de la série, ou null pour la supprimer.
+ * Un exercice vidé disparaît ; une séance vidée renvoie null (à supprimer par l'appelant).
+ */
+export function editSessionSet(session, itemIdx, setIdx, patch) {
+  const items = session.items
+    .map((it, i) => {
+      if (i !== itemIdx) return it;
+      const sets = patch == null ? it.sets.filter((_, j) => j !== setIdx) : it.sets.map((s, j) => (j === setIdx ? clean({ ...s, ...patch }) : s));
+      return { ...it, sets };
+    })
+    .filter((it) => it.sets.length);
+  return items.length ? { ...session, items } : null;
+}
+
+/** Une série propre : un échauffement n'a pas de RIR, une série de travail n'a pas de marqueur. */
+function clean(s) {
+  const out = { ...s, w: Math.max(0, Math.round(s.w * 100) / 100), r: Math.max(0, Math.round(s.r)) };
+  if (out.wu) out.rir = null;
+  else delete out.wu;
+  return out;
+}

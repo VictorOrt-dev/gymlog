@@ -47,7 +47,6 @@ export default function Home({ onOpenSession }) {
   const mine = useMemo(() => state.sessions.filter((s) => s.profileId === pid), [state.sessions, pid]);
   const week = useWeek(mine);
 
-  const [editPlan, setEditPlan] = useState(false);
   const [planDay, setPlanDayOpen] = useState(null);
   const [detailId, setDetailId] = useState(null);
   const [profilesOpen, setProfilesOpen] = useState(false);
@@ -128,32 +127,26 @@ export default function Home({ onOpenSession }) {
       {/* 2. La semaine : fréquence et jours off d'un coup d'œil */}
       <Group
         title="Cette semaine"
-        action={
-          <button onClick={() => setEditPlan(!editPlan)} className="-my-3 h-11 px-1 text-[17px] text-pink active:opacity-50">
-            {editPlan ? 'OK' : 'Modifier'}
-          </button>
-        }
-        footer={editPlan ? 'Touche un jour pour choisir sa séance ou le passer en repos.' : `${doneCount} séance${doneCount > 1 ? 's' : ''} sur ${plannedCount} cette semaine`}
+        footer={`${doneCount} séance${doneCount > 1 ? 's' : ''} sur ${plannedCount} cette semaine · touche un jour pour changer sa séance`}
       >
         <div className="grid grid-cols-7 px-1 py-4">
           {week.map((d) => {
             const tpl = tplById[plan[d.i]];
-            const tap = editPlan ? () => setPlanDayOpen(d.i) : d.done ? () => setDetailId(d.done.id) : null;
-            const Tag = tap ? 'button' : 'div';
+            // Pas de mode « Modifier » : un tap sur un jour ouvre directement son choix de séance.
             return (
-              <Tag key={d.i} {...(tap && { onClick: tap, type: 'button' })} className="flex min-w-0 flex-col items-center gap-1.5">
+              <button key={d.i} type="button" onClick={() => setPlanDayOpen(d.i)} aria-label={`${DAY_NAMES[d.i]} : ${d.done ? `fait (${d.done.name})` : tpl ? tpl.name : 'repos'}`} className="flex min-w-0 flex-col items-center gap-1.5 rounded-xl py-1 active:bg-fill">
                 <span className={`text-[13px] font-semibold ${d.isToday ? 'text-pink' : 'text-muted'}`}>{d.label}</span>
                 <span
                   className={`grid h-10 w-10 place-items-center rounded-full font-num text-[15px] font-semibold tabular-nums ${
-                    d.done ? 'bg-pink text-white' : tpl ? `bg-fill text-white ${d.isPast ? 'opacity-40' : ''}` : 'text-faint'
-                  } ${d.isToday && !d.done ? 'ring-2 ring-pink' : ''} ${editPlan ? 'outline-1 outline-offset-2 outline-dashed outline-muted' : ''}`}
+                    d.done ? 'bg-pink text-white' : tpl ? (d.isPast ? 'bg-fill text-muted line-through' : 'bg-fill text-white') : 'text-muted'
+                  } ${d.isToday && !d.done ? 'ring-2 ring-pink' : ''}`}
                 >
                   {d.done ? <Check className="h-5 w-5" strokeWidth={3} /> : d.date.getDate()}
                 </span>
-                <span className={`h-3.5 w-full truncate px-0.5 text-center text-[11px] font-medium ${d.done ? 'text-pink' : 'text-muted'}`}>
+                <span className={`h-4 w-full truncate px-0.5 text-center text-[13px] font-medium leading-4 ${d.done ? 'text-pink' : 'text-muted'}`}>
                   {d.done?.name ?? tpl?.name ?? ''}
                 </span>
-              </Tag>
+              </button>
             );
           })}
         </div>
@@ -214,6 +207,20 @@ export default function Home({ onOpenSession }) {
       </Sheet>
 
       <Sheet open={planDay != null} onClose={() => setPlanDayOpen(null)} title={planDay != null ? DAY_NAMES[planDay] : ''}>
+        {planDay != null && week[planDay].done && (
+          <button
+            onClick={() => {
+              setDetailId(week[planDay].done.id);
+              setPlanDayOpen(null);
+            }}
+            className="mb-4 flex h-14 w-full items-center gap-3 rounded-2xl bg-pink/12 px-4 text-left active:opacity-70"
+          >
+            <Check className="h-5 w-5 text-pink" strokeWidth={3} />
+            <span className="min-w-0 flex-1 truncate text-[17px] font-semibold">Fait : {week[planDay].done.name}</span>
+            <span className="text-[15px] text-pink">Voir</span>
+          </button>
+        )}
+        {planDay != null && <p className="mb-2 px-1 text-[13px] font-medium text-muted">Séance prévue ce jour-là chaque semaine</p>}
         {planDay != null && (
           <div className="overflow-hidden rounded-2xl bg-fill">
             {[null, ...templates.map((t) => t.id)].map((id) => {

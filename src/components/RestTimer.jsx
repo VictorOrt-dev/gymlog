@@ -38,16 +38,23 @@ export default function RestTimer({ timer, current, onPreset }) {
   const left = t.endAt - now;
 
   if (left <= 0) {
+    const fresh = -left < 6e3; // les premières secondes : flash plein écran
     return (
-      <div className={WRAP}>
-        <button
-          onClick={stop}
-          className={`mx-auto flex h-14 w-full max-w-md items-center justify-between rounded-full bg-pink px-6 text-white shadow-[0_10px_40px_rgba(255,59,128,.35)] ${-left < 10e3 ? 'animate-pulse' : ''}`}
-        >
-          <span className="text-[17px] font-semibold">C'est reparti</span>
-          <span className="font-num text-[15px] font-semibold tabular-nums opacity-80">+{mmss(Math.floor(-left / 1000))}</span>
-        </button>
-      </div>
+      <>
+        {fresh && (
+          <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[35] animate-rest-flash opacity-0 shadow-[inset_0_0_0_10px_var(--color-pink),inset_0_0_120px_40px_color-mix(in_oklab,var(--color-pink)_45%,transparent)]" />
+        )}
+        <div className={WRAP}>
+          <button
+            onClick={stop}
+            role="alert"
+            className={`mx-auto flex h-[72px] w-full max-w-md items-center justify-between rounded-full bg-pink px-7 text-white shadow-[0_10px_40px_rgba(255,59,128,.45)] ${fresh ? 'animate-pop' : ''}`}
+          >
+            <span className="text-[22px] font-bold tracking-tight">C'est reparti</span>
+            <span className="font-num text-[17px] font-semibold tabular-nums opacity-90">+{mmss(Math.floor(-left / 1000))}</span>
+          </button>
+        </div>
+      </>
     );
   }
 

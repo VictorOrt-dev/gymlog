@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { RANGES } from '../lib/defaults';
-import { ago, fmtInt, fmtKg, fmtSet, isBodyweight, summarize, target, tonnage, totalReps, trend, work, workSets } from '../lib/training';
+import { ago, fmtInt, fmtKg, fmtSet, isBodyweight, liveRecords, recordBook, recordOf, summarize, target, tonnage, totalReps, trend, work, workSets } from '../lib/training';
 import Sheet from './Sheet';
 import Stepper from './Stepper';
 import { Check } from './Icons';
@@ -11,7 +11,7 @@ const TREND = {
   eq: { sign: '=', cls: 'text-muted' },
   down: { sign: '▼', cls: 'text-muted' },
 };
-const COLS = 'grid-cols-[1.25rem_1fr_1.25rem_6.75rem]';
+const COLS = 'grid-cols-[1.25rem_1fr_1.25rem_7.5rem]';
 const WARMUP_STEPS = [[0.5, 10], [0.7, 5], [0.85, 3]]; // % de la charge de travail × reps : montée classique
 const rirText = (r) => `RIR ${r >= 4 ? '4+' : r}`;
 const toEntry = (s) => ({ w: s.w, r: s.r, rir: s.rir ?? 2 });
@@ -33,7 +33,7 @@ const Chip = ({ active, children, ...props }) => (
  * Les échauffements sont notés à part et n'entrent dans aucun calcul (À battre, records, courbes).
  * L'objectif suit une double progression par fourchette : les champs sont pré-remplis, 1 tap suffit.
  */
-export default function ExerciseCard({ exercise, item, prev, note, stalled, open, onToggle, onMenu, onAdd, onUpdate, onDelete, onRange, onNote }) {
+export default function ExerciseCard({ exercise, item, prev, history = [], note, stalled, open, onToggle, onMenu, onAdd, onUpdate, onDelete, onRange, onNote }) {
   const sets = item.sets;
   const indexed = sets.map((s, i) => ({ s, i }));
   const warmups = indexed.filter((x) => x.s.wu);
@@ -132,6 +132,10 @@ export default function ExerciseCard({ exercise, item, prev, note, stalled, open
     if (noteDraft != null) onNote(noteDraft);
     setNoteDraft(null);
   };
+
+  // Records en direct : chaque série se mesure à tout l'historique + aux séries d'avant aujourd'hui
+  const records = useMemo(() => liveRecords(sets, history), [sets, history]);
+  const entryIsRecord = editing == null && !warm && !!recordOf({ ...entry, wu: false }, recordBook([...history, ...work(sets)]));
 
   const rows = Math.max(nW + 1, prevSets.length);
   const nextRef = prevSets[nW];
@@ -243,7 +247,7 @@ export default function ExerciseCard({ exercise, item, prev, note, stalled, open
                   </span>
                 </button>
               ))}
-              {!warmups.length && <span className="text-[13px] text-faint">aucun pour l’instant</span>}
+              {!warmups.length && <span className="text-[13px] text-muted">aucun pour l’instant</span>}
             </div>
           )}
 
@@ -267,9 +271,9 @@ export default function ExerciseCard({ exercise, item, prev, note, stalled, open
                   type="button"
                   disabled={!s}
                   onClick={() => edit(real)}
-                  className={`grid h-11 w-full ${COLS} items-center gap-2 rounded-xl px-1 text-left ${editing === real && s ? 'bg-fill' : 'sep [--sep-inset:0.25rem]'} ${s && flash === real ? 'animate-set-in' : ''}`}
+                  className={`grid min-h-11 w-full ${COLS} items-center gap-2 rounded-xl px-1 text-left ${editing === real && s ? 'bg-fill' : s && records[real] ? 'bg-pink/12' : 'sep [--sep-inset:0.25rem]'} ${s && flash === real ? 'animate-set-in' : ''}`}
                 >
-                  <span className="font-num text-[13px] font-medium tabular-nums text-faint">{k + 1}</span>
+                  <span className="font-num text-[13px] font-medium tabular-nums text-muted">{k + 1}</span>
                   <span className="truncate">
                     {s ? (
                       <>
@@ -279,16 +283,20 @@ export default function ExerciseCard({ exercise, item, prev, note, stalled, open
                     ) : isNext ? (
                       <span className="text-[15px] font-semibold text-pink">{p ? 'À battre' : nW ? 'Série bonus' : 'Pose ta référence'}</span>
                     ) : (
-                      <span className="text-faint">–</span>
+                      <span className="text-muted" aria-hidden="true">–</span>
                     )}
                   </span>
-                  <span className={`text-center text-[12px] ${t?.cls ?? ''}`}>{t?.sign}</span>
+                  <span className={`text-center text-[13px] ${t?.cls ?? ''}`} aria-label={t ? (t.sign === '▲' ? 'en progrès' : t.sign === '▼' ? 'en baisse' : 'égal') : undefined}>{t?.sign}</span>
                   <span className="flex min-w-0 flex-col items-end leading-tight">
-                    {p && (
-                      <>
-                        <span className={`truncate font-num tabular-nums ${isNext ? 'text-[17px] font-semibold text-white' : 'text-[15px] text-muted'}`}>{fmtSet(p)}</span>
-                        {p.rir != null && <span className={`text-[11px] ${isNext ? 'text-white/70' : 'text-faint'}`}>{rirText(p.rir)}</span>}
-                      </>
+                    {s && records[real] ? (
+                      <span className="whitespace-nowrap rounded-full bg-pink px-2 py-0.5 text-[13px] font-bold text-white">Nouveau record</span>
+                    ) : (
+                      p && (
+                        <>
+                          <span className={`truncate font-num tabular-nums ${isNext ? 'text-[17px] font-semibold text-white' : 'text-[15px] text-muted'}`}>{fmtSet(p)}</span>
+                          {p.rir != null && <span className={`text-[13px] ${isNext ? 'text-white/80' : 'text-muted'}`}>{rirText(p.rir)}</span>}
+                        </>
+                      )
                     )}
                   </span>
                 </button>
@@ -323,7 +331,7 @@ export default function ExerciseCard({ exercise, item, prev, note, stalled, open
 
           {!wuMode && (
             <div className="mt-2 flex flex-col gap-1.5 @[20rem]:flex-row @[20rem]:items-center @[20rem]:gap-3">
-              <span className="shrink-0 pl-1 text-[12px] font-medium leading-tight text-muted @[20rem]:w-[4.5rem]">Reps en réserve</span>
+              <span className="shrink-0 pl-1 text-[13px] font-medium leading-tight text-muted @[20rem]:w-[4.75rem]">Reps en réserve</span>
               <div className="grid flex-1 grid-cols-5 gap-0.5 rounded-xl bg-fill p-0.5" role="radiogroup" aria-label="Reps en réserve (RIR)">
                 {RIRS.map((v) => (
                   <button
@@ -356,8 +364,10 @@ export default function ExerciseCard({ exercise, item, prev, note, stalled, open
               : warm
                 ? 'Valider l’échauffement'
                 : `Valider la série ${nW + 1}`}
-            {editing == null && !warm && nextRef && trend(entry, nextRef) === 'up' && (
-              <span className="rounded-full bg-white/20 px-2 py-0.5 text-[12px] font-semibold">▲ Progrès</span>
+            {entryIsRecord ? (
+              <span className="rounded-full bg-white px-2 py-0.5 text-[13px] font-bold text-pink">★ Record</span>
+            ) : (
+              editing == null && !warm && nextRef && trend(entry, nextRef) === 'up' && <span className="rounded-full bg-white/20 px-2 py-0.5 text-[13px] font-semibold">▲ Progrès</span>
             )}
           </button>
 

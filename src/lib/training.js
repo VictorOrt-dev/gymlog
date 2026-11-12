@@ -142,3 +142,45 @@ export const previousOf = (series, point) => series.points[series.points.indexOf
 
 /** Variation en % par rapport à la séance précédente (null s'il n'y en a pas). */
 export const pctChange = (cur, prev) => (prev > 0 ? Math.round(((cur - prev) / prev) * 100) : null);
+
+// ── Records ────────────────────────────────────────────────────────────────
+
+/**
+ * Bilan des records d'un exercice à partir d'une liste de séries de travail (historique + séries déjà faites).
+ * best   : meilleur 1RM estimé (reps + RIR)
+ * byReps : pour chaque nombre de reps, la charge la plus lourde soulevée pour AU MOINS ce nombre de reps
+ */
+export function recordBook(sets) {
+  let best = 0;
+  const byReps = {};
+  for (const s of work(sets)) {
+    best = Math.max(best, e1rm(s));
+    for (let r = 1; r <= s.r; r++) byReps[r] = Math.max(byReps[r] ?? 0, s.w);
+  }
+  return { best, byReps, empty: work(sets).length === 0 };
+}
+
+/**
+ * Une série est-elle un record ? Pas de record sans historique (la 1re fois, tout serait record).
+ * Renvoie null, ou { e1rm: bool, reps: bool } (record de force, record à ce nombre de reps).
+ */
+export function recordOf(set, book) {
+  if (!set || set.wu || book.empty) return null;
+  const strength = e1rm(set) > book.best + 0.05;
+  const reps = set.w > 0 && set.w > (book.byReps[set.r] ?? 0) + 0.001;
+  return strength || reps ? { e1rm: strength, reps } : null;
+}
+
+/** Toutes les séries de travail passées d'un exercice (pour construire le carnet de records). */
+export const historySets = (sessions, exerciseId) => sessions.flatMap((s) => s.items.filter((i) => i.exerciseId === exerciseId).flatMap((i) => work(i.sets)));
+
+/** Records d'une liste de séries du jour, dans l'ordre : chaque série se mesure à l'historique + aux séries d'avant. */
+export function liveRecords(todaySets, history) {
+  const out = [];
+  const seen = [...history];
+  for (const s of todaySets) {
+    out.push(recordOf(s, recordBook(seen)));
+    if (!s.wu) seen.push(s);
+  }
+  return out;
+}

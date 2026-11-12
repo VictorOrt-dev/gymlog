@@ -3,7 +3,8 @@ import { DEFAULT_REST } from '../lib/defaults';
 import { useNow, useRestTimer, useWakeLock } from '../lib/hooks';
 import { moveItem, removeItem, replaceItem } from '../lib/session';
 import { useStore } from '../lib/store';
-import { bestOf, e1rm, isStalling, lastPerformances, mmss, seriesFor, work } from '../lib/training';
+import { buildSummary } from '../lib/summary';
+import { historySets, isStalling, lastPerformances, mmss, seriesFor, work } from '../lib/training';
 import ExerciseCard from './ExerciseCard';
 import ExercisePicker from './ExercisePicker';
 import RestTimer from './RestTimer';
@@ -16,6 +17,7 @@ function Elapsed({ since }) {
   return mmss((now - since) / 1000);
 }
 
+const WARMUP_REST = 60; // un échauffement ne mérite pas 3 minutes de repos
 const firstIncomplete = (items) => Math.max(0, items.findIndex((it) => !it.sets.length));
 
 /**
@@ -33,6 +35,9 @@ export default function SessionLogger({ onExit, onFinished }) {
   const byId = useMemo(() => Object.fromEntries(state.exercises.map((e) => [e.id, e])), [state.exercises]);
   const last = useMemo(() => lastPerformances(state.sessions, pid), [state.sessions, pid]);
   const notes = state.notes?.[pid] ?? {};
+  const mineSessions = useMemo(() => state.sessions.filter((s) => s.profileId === pid), [state.sessions, pid]);
+  // Historique de travail de chaque exercice : le carnet de records en direct
+  const histories = useMemo(() => Object.fromEntries(items.map((it) => [it.exerciseId, historySets(mineSessions, it.exerciseId)])), [mineSessions, items.map((it) => it.exerciseId).join()]); // eslint-disable-line react-hooks/exhaustive-deps
   // Stagnation : meilleure série (1RM estimé) qui ne progresse plus depuis 3 séances
   const stalled = useMemo(() => {
     const mine = state.sessions.filter((s) => s.profileId === pid);
@@ -95,11 +100,10 @@ export default function SessionLogger({ onExit, onFinished }) {
 
   const finish = () => {
     if (!confirming) return setConfirming(true);
-    // Records de force : exercices dont la meilleure série (1RM estimé) bat celle de la dernière fois
-    const records = items.filter((it) => work(it.sets).length && last[it.exerciseId] && e1rm(bestOf(work(it.sets))) > e1rm(bestOf(last[it.exerciseId].sets)) + 0.05).length;
+    const summary = any ? buildSummary(draft, state.sessions) : null; // avant d'archiver : comparaison avec l'historique d'avant
     timer.stop();
     finishSession();
-    onFinished({ sets: total, any, records });
+    onFinished({ summary, athlete: state.profiles.find((p) => p.id === pid)?.name, multi: state.profiles.length > 1 });
   };
 
   const menuItem = menu != null ? items[menu] : null;
@@ -115,7 +119,7 @@ export default function SessionLogger({ onExit, onFinished }) {
           </button>
           <div className="min-w-0 max-w-[42vw] text-center leading-tight">
             <div className="truncate text-[17px] font-semibold">{draft.name}</div>
-            <div className="font-num text-[12px] tabular-nums text-muted">
+            <div className="font-num text-[13px] tabular-nums text-muted">
               <Elapsed since={draft.startedAt} /> · {total} série{total > 1 ? 's' : ''}
             </div>
           </div>
@@ -160,6 +164,7 @@ export default function SessionLogger({ onExit, onFinished }) {
             exercise={byId[it.exerciseId] ?? { name: 'Exercice supprimé', inc: 2.5 }}
             item={it}
             prev={last[it.exerciseId]}
+            history={histories[it.exerciseId]}
             note={notes[it.exerciseId]}
             stalled={stalled[it.exerciseId]}
             onRange={(range) => setExerciseRange(it.exerciseId, range)}
@@ -172,7 +177,7 @@ export default function SessionLogger({ onExit, onFinished }) {
             }}
             onAdd={(set) => {
               patchSets(i, (s) => [...s, { ...set, at: Date.now() }]);
-              timer.start(restFor(byId[it.exerciseId])); // le repos démarre tout seul
+              timer.start(set.wu ? WARMUP_REST : restFor(byId[it.exerciseId])); // le repos démarre tout seul (court après un échauffement)
             }}
             onUpdate={(k, set) => patchSets(i, (s) => s.map((x, j) => (j === k ? { ...x, ...set } : x)))}
             onDelete={(k) => patchSets(i, (s) => s.filter((_, j) => j !== k))}

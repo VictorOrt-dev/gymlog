@@ -49,7 +49,7 @@ export default function Stepper({ label, value, onChange, step, min = 0, decimal
           onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
           className={`h-11 w-full min-w-0 bg-transparent text-center font-num font-bold leading-none tracking-tight tabular-nums outline-none ${shown.length > 4 ? 'text-[24px]' : 'text-[28px]'}`}
         />
-        <span className="-mt-1.5 text-[12px] font-medium leading-none text-muted">{label}</span>
+        <span className="-mt-1.5 text-[13px] font-medium leading-none text-muted">{label}</span>
       </label>
       <Round label={`${label} plus ${fmt(step)}`} onClick={() => commit(value + step)}>
         <Plus className="h-5 w-5" />

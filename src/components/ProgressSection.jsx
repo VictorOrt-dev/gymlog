@@ -23,7 +23,7 @@ function Tile({ title, series, onClick }) {
       <span className="mt-1 truncate text-[13px] text-muted">
         <Change pct={pctChange(last.value, previousOf(series, last)?.value)} /> · {fmtSet(last.best)}
       </span>
-      {isStalling(series.points.map((p) => p.value)) && <span className="mt-1 text-[12px] font-semibold text-white/70">Stagne depuis 3 séances</span>}
+      {isStalling(series.points.map((p) => p.value)) && <span className="mt-1 text-[13px] font-semibold text-white/80">Stagne depuis 3 séances</span>}
       <Sparkline values={series.points.slice(-LAST).map((p) => p.value)} height={34} className="mt-3" />
     </button>
   );

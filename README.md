@@ -19,10 +19,13 @@ Pendant la séance, tout est sur la carte de l'exercice :
 - **Note par exercice** (« banc cran 3, prise 2 doigts »), gardée d'une séance à l'autre, propre à chaque profil.
 - **Alerte de stagnation** : si la force ne progresse plus depuis 3 séances, un conseil discret (séance allégée ou variante).
 - **Jauge de tonnage effectif** (séries RIR ≤ 3) jusqu'au total de la dernière fois.
-- **Le repos démarre tout seul** à chaque série validée. Bip et vibration à la fin, durée mémorisée par exercice.
+- **Records en direct** : dès qu'une série bat ton meilleur 1RM estimé ou ton record à ce nombre de reps, la ligne s'illumine (« Nouveau record »), et le bouton l'annonce avant même de valider (« ★ Record »).
+- **Le repos démarre tout seul** à chaque série validée : durée mémorisée par exercice, 60 s seulement après un échauffement. À la fin, l'écran entier clignote en rose (visible à 2 mètres), avec bip et vibration.
 - **Pensé pour le pouce** : toutes les cibles font au moins 44 px, la mise en page s'adapte jusqu'à l'iPhone SE, Valider reste toujours au-dessus du chrono, et chaque série validée s'allume brièvement.
 
-À la fin : « Bravo · 2 records de force ▲ » quand ta meilleure série bat celle de la dernière fois.
+**À la fin, un récapitulatif** : durée, séries de travail, records battus, tonnage effectif, et chaque exercice comparé à ta dernière séance du même type.
+
+**Une erreur de saisie ?** Dans le détail d'une séance passée, touche une série pour corriger sa charge, ses reps ou son RIR, la supprimer ou la passer en échauffement (avec « Annuler »). Objectifs, records et courbes se recalculent aussitôt.
 
 **En binôme**, une barre d'avatars sous l'en-tête de la séance : un tap et tu passes sur la séance de ton pote (son exercice ouvert, ses charges, son chrono), un tap et tu reviens. « + Pote » l'ajoute en pleine séance avec les mêmes exercices. Quand tu termines, l'app bascule sur sa séance s'il n'a pas fini.
 
@@ -46,7 +49,7 @@ En `http://` sur le réseau local, l'écran qui reste allumé et le hors-ligne s
 npm test
 ```
 
-51 tests unitaires (Vitest) couvrent la logique critique : 1RM ajusté au RIR, double progression par fourchette, échauffements, stagnation, migration des données, validation des sauvegardes, binôme, réordonner / remplacer. Ils tournent sur GitHub à chaque push : **si un test échoue, rien n'est mis en ligne.**
+63 tests unitaires (Vitest) couvrent la logique critique : 1RM ajusté au RIR, double progression par fourchette, échauffements, stagnation, migration des données, validation des sauvegardes, binôme, réordonner / remplacer, records, récapitulatif, correction des séances passées. Ils tournent sur GitHub à chaque push : **si un test échoue, rien n'est mis en ligne.**
 
 ## Mettre en ligne (GitHub Pages)
 
@@ -66,7 +69,8 @@ src/
 │  ├─ store.jsx             état global + persistance localStorage (2 clés)
 │  ├─ defaults.js           91 exercices par muscle, modèles, migration des données
 │  ├─ training.js           la logique de coach : 1RM × RIR, fourchettes, échauffements, stagnation
-│  ├─ session.js            binôme, réordonner, remplacer (logique pure, testée)
+│  ├─ session.js            binôme, réordonner, remplacer, corriger une séance (logique pure, testée)
+│  ├─ summary.js            récapitulatif de fin de séance
 │  ├─ backup.js             export signé + import validé champ par champ
 │  └─ hooks.js              timer de repos, wake lock, horloge
 ├─ components/
@@ -80,7 +84,7 @@ src/
    ├─ SwipeRow.jsx          glisser pour supprimer
    ├─ ExercisePicker · TemplateEditor · SessionDetail · ProfileSheet
    └─ RestTimer · Stepper · Toast · Sheet · StorageAlert · ui · Icons
-tests/                       Vitest : training, migrate, backup, session
+tests/                       Vitest : training, migrate, backup, session, records
 ```
 
 ## Les indicateurs (pas de piège du tonnage brut)

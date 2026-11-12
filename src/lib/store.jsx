@@ -135,6 +135,8 @@ export function StoreProvider({ children }) {
       setPlanDay: (day, templateId) =>
         forProfile('plans', (plan = Array(7).fill(null)) => plan.map((x, i) => (i === day ? templateId : x))),
 
+      /** Remplace une séance terminée (correction a posteriori). Tout ce qui en dérive se recalcule seul. */
+      saveSession: (session) => set((s) => ({ ...s, sessions: s.sessions.map((x) => (x.id === session.id ? session : x)) })),
       deleteSession: (id) => set((s) => ({ ...s, sessions: s.sessions.filter((x) => x.id !== id) })),
       restoreSession: (session) =>
         set((s) => ({ ...s, sessions: [...s.sessions, session].sort((a, b) => a.startedAt - b.startedAt) })),
