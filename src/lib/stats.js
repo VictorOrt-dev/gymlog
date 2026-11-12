@@ -1,5 +1,5 @@
 import { CUSTOM_GROUP, GROUPS } from './defaults';
-import { e1rm, bestOf, main, work } from './training';
+import { main, work } from './training';
 
 /**
  * Statistiques de suivi (logique pure, testée).
@@ -90,19 +90,6 @@ export function repRecords(sets, targets = [1, 3, 5, 8, 10, 12]) {
     })
     .filter(Boolean);
   return rows.filter((x, i) => !rows.slice(i + 1).some((y) => y.w === x.w));
-}
-
-/** Duel en binôme : meilleure série (1RM estimé) de chaque athlète sur un exercice, du plus fort au moins fort. */
-export function duel(sessions, profiles, exerciseId) {
-  return profiles
-    .map((p) => {
-      const sets = sessions.filter((s) => s.profileId === p.id).flatMap((s) => s.items.filter((i) => i.exerciseId === exerciseId).flatMap((i) => main(i.sets)));
-      if (!sets.length) return null;
-      const best = bestOf(sets);
-      return { profile: p, best, e1rm: Math.round(e1rm(best) * 2) / 2 };
-    })
-    .filter(Boolean)
-    .sort((a, b) => b.e1rm - a.e1rm);
 }
 
 /** Exercices qui stagnent (parmi ceux faits récemment) : déclencheur de la proposition de décharge. */

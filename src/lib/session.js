@@ -5,32 +5,6 @@ import { uid } from './defaults';
  * Un « draft » = { id, profileId, templateId, name, startedAt, open, items: [{ exerciseId, sets }] }.
  */
 
-/**
- * Binôme : rend `pid` actif. S'il n'a pas de séance en cours, il reçoit la même que l'athlète actuel
- * (mêmes exercices, même ordre, aucune série) ; sa séance type du même nom est reliée si elle existe.
- */
-export function withAthlete(state, pid) {
-  if (pid === state.profileId || !state.profiles.some((p) => p.id === pid)) return state;
-  const cur = state.drafts[state.profileId];
-  let drafts = state.drafts;
-  if (!drafts[pid] && cur) {
-    const tpl = state.templates.find((t) => t.profileId === pid && t.name === cur.name);
-    drafts = {
-      ...drafts,
-      [pid]: {
-        id: uid(),
-        profileId: pid,
-        templateId: tpl?.id ?? null,
-        name: cur.name,
-        startedAt: Date.now(),
-        open: cur.open,
-        items: cur.items.map((it) => ({ exerciseId: it.exerciseId, sets: [] })),
-      },
-    };
-  }
-  return { ...state, profileId: pid, drafts };
-}
-
 /** Déplace l'exercice `i` d'un cran (dir = -1 / +1). L'exercice ouvert suit son déplacement. */
 export function moveItem(draft, i, dir) {
   const j = i + dir;

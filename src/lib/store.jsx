@@ -1,8 +1,8 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { serializeBackup } from './backup';
-import { applySupersets, withAthlete } from './session';
+import { applySupersets } from './session';
 import { norm } from './training';
-import { CUSTOM_GROUP, DEFAULT_REST, initialState, migrate, seedProfile, templateFromModel, uid } from './defaults';
+import { CUSTOM_GROUP, DEFAULT_REST, initialState, migrate, templateFromModel, uid } from './defaults';
 
 const K_DATA = 'gymlog:data';
 const K_SESSIONS = 'gymlog:sessions'; // l'historique grossit : clé séparée, réécrite seulement quand il change
@@ -146,31 +146,8 @@ export function StoreProvider({ children }) {
       restoreSession: (session) =>
         set((s) => ({ ...s, sessions: [...s.sessions, session].sort((a, b) => a.startedAt - b.startedAt) })),
 
-      addProfile: (name) =>
-        set((s) => {
-          const { profile, templates, plan } = seedProfile(name);
-          return {
-            ...s,
-            profileId: profile.id,
-            profiles: [...s.profiles, profile],
-            templates: [...s.templates, ...templates],
-            plans: { ...s.plans, [profile.id]: plan },
-          };
-        }),
-      switchProfile: (id) => set((s) => ({ ...s, profileId: id })),
-
-      /**
-       * Binôme : passe à un autre athlète en pleine séance, sans rien quitter.
-       * S'il n'a pas de séance en cours, il reçoit la même (mêmes exercices, dans le même ordre, sans séries).
-       */
-      switchAthlete: (pid) => set((s) => withAthlete(s, pid)),
-      /** Ajoute un pote et le fait entrer directement dans la séance en cours. */
-      addAthlete: (name) =>
-        set((s) => {
-          const { profile, templates, plan } = seedProfile(name);
-          const next = { ...s, profiles: [...s.profiles, profile], templates: [...s.templates, ...templates], plans: { ...s.plans, [profile.id]: plan } };
-          return withAthlete(next, profile.id);
-        }),
+      /** L'app est personnelle (une personne par téléphone) : seul le prénom se règle. */
+      renameProfile: (name) => set((s) => ({ ...s, profiles: s.profiles.map((p) => (p.id === s.profileId ? { ...p, name } : p)) })),
 
       /**
        * Sauvegarde en 1 tap : le menu « Partager » du téléphone (iCloud Drive, Google Drive, AirDrop, WhatsApp…).

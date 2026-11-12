@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { DEFAULT_REST } from '../lib/defaults';
+import { DEFAULT_REST, RANGES } from '../lib/defaults';
 import { useNow, useRestTimer, useWakeLock } from '../lib/hooks';
 import { linkSuperset, moveItem, removeItem, replaceItem, supersetOf, supersetPairs, unlinkSuperset } from '../lib/session';
 import { useStore } from '../lib/store';
@@ -28,7 +28,7 @@ const firstIncomplete = (items) => Math.max(0, items.findIndex((it) => !it.sets.
  * En binôme : un tap sur l'avatar du pote, et on passe sur SA séance (son exercice ouvert, son chrono).
  */
 export default function SessionLogger({ onExit, onFinished }) {
-  const { state, setDraft, finishSession, setExerciseRest, setExerciseRange, setNote, switchAthlete, addAthlete, rememberSupersets } = useStore();
+  const { state, setDraft, finishSession, setExerciseRest, setExerciseRange, setNote, rememberSupersets } = useStore();
   const pid = state.profileId;
   const draft = state.drafts[pid];
   const items = draft?.items ?? [];
@@ -50,9 +50,8 @@ export default function SessionLogger({ onExit, onFinished }) {
   const [menu, setMenu] = useState(null); // index de l'exercice dont on organise la place
   const [confirming, setConfirming] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
-  const [newMate, setNewMate] = useState(null); // non-null : saisie du prénom d'un pote
   const [chartOf, setChartOf] = useState(null); // courbe d'un exercice, ouverte sans quitter la séance
-  const timer = useRestTimer(pid);
+  const timer = useRestTimer();
   useWakeLock(true);
 
   // L'exercice ouvert est écrit dans la séance dès l'arrivée : en binôme, chacun retrouve exactement sa place.
@@ -142,7 +141,7 @@ export default function SessionLogger({ onExit, onFinished }) {
     const summary = any ? buildSummary(draft, state.sessions) : null; // avant d'archiver : comparaison avec l'historique d'avant
     timer.stop();
     finishSession();
-    onFinished({ summary, athlete: state.profiles.find((p) => p.id === pid)?.name, multi: state.profiles.length > 1 });
+    onFinished({ summary });
   };
 
   const menuItem = menu != null ? items[menu] : null;
@@ -170,59 +169,26 @@ export default function SessionLogger({ onExit, onFinished }) {
           </button>
         </div>
 
-        {/* Binôme : un tap sur un avatar = on passe sur sa séance */}
-        <div className="mx-auto flex max-w-md gap-2 overflow-x-auto px-3 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Athlète">
-          {state.profiles.map((p) => {
-            const d = state.drafts[p.id];
-            const active = p.id === pid;
-            const done = d ? d.items.reduce((n, it) => n + work(it.sets).length, 0) : null;
-            return (
+        {/* Forme du jour : dans l'en-tête, toujours visible et modifiable ; les objectifs s'adaptent (autorégulation) */}
+        <div className="mx-auto flex max-w-md items-center gap-2 px-3 pb-2" role="radiogroup" aria-label="Forme du jour">
+          {deloadActive && <span className="shrink-0 pl-1 text-[13px] font-semibold text-pink">Décharge</span>}
+          <div className="grid flex-1 grid-cols-3 gap-0.5 rounded-xl bg-fill p-0.5">
+            {FORMS.map(([k, label]) => (
               <button
-                key={p.id}
-                role="tab"
-                aria-selected={active}
-                onClick={() => switchAthlete(p.id)}
-                className={`flex h-11 shrink-0 items-center gap-2 rounded-full pl-1.5 pr-4 transition-colors ${active ? 'bg-pink text-white' : 'bg-fill text-white/85 active:bg-fill-hi'}`}
+                key={k}
+                role="radio"
+                aria-checked={form === k}
+                onClick={() => setDraft((d) => ({ ...d, form: k }))}
+                className={`h-11 rounded-[10px] text-[15px] font-semibold transition-colors ${form === k ? (k === 'high' ? 'bg-pink text-white' : 'bg-seg text-white') : 'text-muted active:text-white'}`}
               >
-                <span className={`grid h-8 w-8 place-items-center rounded-full text-[15px] font-semibold ${active ? 'bg-black/20' : 'bg-fill-hi'}`}>{(p.name || '?')[0].toUpperCase()}</span>
-                <span className="max-w-28 truncate text-[15px] font-semibold">{p.name}</span>
-                {done != null && <span className="font-num text-[13px] tabular-nums opacity-75">{done}</span>}
+                {label}
               </button>
-            );
-          })}
-          <button onClick={() => setNewMate('')} aria-label="Ajouter un pote à la séance" className="flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-fill px-4 text-[15px] font-semibold text-pink active:bg-fill-hi">
-            <Plus className="h-4 w-4" /> Pote
-          </button>
+            ))}
+          </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-md space-y-3 px-3 pt-3">
-        {/* Forme du jour : un tap, et les objectifs s'adaptent (autorégulation). Disparaît dès la 1re série. */}
-        {total === 0 && (
-          <div className="rounded-2xl bg-card p-3">
-            <div className="mb-2 flex items-baseline justify-between px-1">
-              <span className="text-[15px] font-semibold">Comment tu te sens ?</span>
-              {deloadActive && <span className="text-[13px] font-semibold text-pink">Semaine de décharge</span>}
-            </div>
-            <div className="grid grid-cols-3 gap-0.5 rounded-xl bg-fill p-0.5" role="radiogroup" aria-label="Forme du jour">
-              {FORMS.map(([k, label]) => (
-                <button
-                  key={k}
-                  role="radio"
-                  aria-checked={form === k}
-                  onClick={() => setDraft((d) => ({ ...d, form: k }))}
-                  className={`h-11 rounded-[10px] text-[15px] font-semibold transition-colors ${form === k ? (k === 'high' ? 'bg-pink text-white' : 'bg-seg text-white') : 'text-muted'}`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <p className="mt-2 px-1 text-[13px] leading-snug text-muted">
-              {form === 'low' ? 'Jour sans : objectifs à −5 %, on entretient.' : form === 'high' ? 'En forme : on charge un cran plus tôt si tu es proche du haut de fourchette.' : 'Objectifs habituels : double progression.'}
-            </p>
-          </div>
-        )}
-
         {items.map((it, i) => (
           <ExerciseCard
             key={it.exerciseId}
@@ -232,8 +198,6 @@ export default function SessionLogger({ onExit, onFinished }) {
             history={histories[it.exerciseId]}
             note={notes[it.exerciseId]}
             stalled={stalled[it.exerciseId]}
-            onRange={(range) => setExerciseRange(it.exerciseId, range)}
-            onNote={(text) => setNote(it.exerciseId, text)}
             open={open === i}
             onToggle={() => setOpen(open === i ? -1 : i)}
             onMenu={() => {
@@ -278,6 +242,39 @@ export default function SessionLogger({ onExit, onFinished }) {
               Exercice {menu + 1} sur {items.length}
               {menuDone > 0 && ` · ${menuDone} série${menuDone > 1 ? 's' : ''} faite${menuDone > 1 ? 's' : ''}`}
             </p>
+            {/* Réglages de l'exercice : on les fixe une fois */}
+            <p className="mb-1.5 px-1 text-[13px] font-medium text-muted">Fourchette de reps</p>
+            <div className="mb-1 grid grid-cols-6 gap-1" role="radiogroup" aria-label="Fourchette de reps">
+              {RANGES.map(([a, b]) => {
+                const ex = byId[menuItem.exerciseId];
+                const on = ex?.range?.[0] === a && ex?.range?.[1] === b;
+                return (
+                  <button
+                    key={a}
+                    role="radio"
+                    aria-checked={on}
+                    onClick={() => setExerciseRange(menuItem.exerciseId, [a, b])}
+                    className={`h-11 rounded-xl font-num text-[15px] font-semibold ${on ? 'bg-pink text-white' : 'bg-fill text-white active:bg-fill-hi'}`}
+                  >
+                    {a}–{b}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mb-3 px-1 text-[13px] leading-snug text-muted">Monte les reps jusqu’en haut sur toutes tes séries principales, puis charge et repars du bas.</p>
+            <label className="mb-4 block">
+              <span className="mb-1.5 block px-1 text-[13px] font-medium text-muted">Note (réglage machine, prise…)</span>
+              <input
+                key={menuItem.exerciseId}
+                defaultValue={notes[menuItem.exerciseId] ?? ''}
+                maxLength={120}
+                onBlur={(e) => setNote(menuItem.exerciseId, e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+                placeholder="Ex. : siège cran 4, prise neutre"
+                enterKeyHint="done"
+                className="h-11 w-full rounded-xl bg-fill px-3.5 text-[16px] outline-none placeholder:text-muted focus:ring-1 focus:ring-pink/60"
+              />
+            </label>
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => move(menu, -1)}
@@ -321,30 +318,6 @@ export default function SessionLogger({ onExit, onFinished }) {
             </button>
           </>
         )}
-      </Sheet>
-
-      {/* Nouveau pote : il entre directement dans la séance, avec les mêmes exercices */}
-      <Sheet open={newMate != null} onClose={() => setNewMate(null)} title="Ajouter un pote">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!newMate?.trim()) return;
-            addAthlete(newMate.trim());
-            setNewMate(null);
-          }}
-          className="flex gap-2"
-        >
-          <input
-            autoFocus
-            value={newMate ?? ''}
-            onChange={(e) => setNewMate(e.target.value)}
-            placeholder="Prénom"
-            enterKeyHint="go"
-            className="h-12 min-w-0 flex-1 rounded-xl bg-fill px-4 text-[17px] outline-none placeholder:text-muted"
-          />
-          <button className="h-12 rounded-full bg-pink px-5 text-[17px] font-semibold text-white active:opacity-80">Ajouter</button>
-        </form>
-        <p className="mt-3 px-1 text-[13px] leading-snug text-muted">Il reçoit la même séance, dans le même ordre. Chacun garde ses charges, son historique et son chrono.</p>
       </Sheet>
 
       <ProgressDetail exerciseId={chartOf} onClose={() => setChartOf(null)} backLabel="Séance" />

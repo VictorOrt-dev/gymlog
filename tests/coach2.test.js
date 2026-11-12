@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { libraryExercises, migrate, initialState } from '../src/lib/defaults';
 import { applySupersets, editSessionSet, linkSuperset, moveItem, removeItem, replaceItem, supersetOf, supersetPairs, unlinkSuperset } from '../src/lib/session';
 import { decodeTemplate, encodeTemplate, readSharedCode, templateLink } from '../src/lib/share';
-import { duel, mondayOf, repRecords, volumeStatus, weekStreak, weeklyVolume } from '../src/lib/stats';
+import { mondayOf, repRecords, volumeStatus, weekStreak, weeklyVolume } from '../src/lib/stats';
 import { lastPerformances, main, recordOf, recordBook, rirText, target } from '../src/lib/training';
 
 const S = (w, r, rir = 1, extra = {}) => ({ w, r, rir, ...extra });
@@ -81,7 +81,7 @@ describe('Régularité', () => {
   });
 });
 
-describe('Records par reps et duel', () => {
+describe('Records par reps', () => {
   const sets = [S(100, 3, 1, { at: 1 }), S(90, 6, 1, { at: 2 }), S(80, 10, 1, { at: 3 }), S(120, 1, 0, { at: 4 }), S(70, 12, 0, { at: 5, t: 'drop' })];
   it('charge max pour au moins N reps, drop exclu, sans ligne redondante', () => {
     expect(repRecords(sets)).toEqual([
@@ -90,15 +90,6 @@ describe('Records par reps et duel', () => {
       { r: 5, w: 90, reps: 6, at: 2 },
       { r: 10, w: 80, reps: 10, at: 3 }, // « 8 reps : 80 kg » est couvert par « 10 reps : 80 kg »
     ]);
-  });
-  it('duel : classe les athlètes par 1RM estimé', () => {
-    const sessions = [
-      { profileId: 'a', items: [{ exerciseId: 'x', sets: [S(80, 8, 1)] }] },
-      { profileId: 'b', items: [{ exerciseId: 'x', sets: [S(90, 8, 1)] }] },
-      { profileId: 'c', items: [{ exerciseId: 'y', sets: [S(200, 8, 1)] }] },
-    ];
-    const d = duel(sessions, [{ id: 'a' }, { id: 'b' }, { id: 'c' }], 'x');
-    expect(d.map((x) => x.profile.id)).toEqual(['b', 'a']);
   });
 });
 

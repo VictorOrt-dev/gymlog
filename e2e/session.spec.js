@@ -45,7 +45,7 @@ test('drop set : noté à part, hors comparaison', async ({ page }) => {
 
 test('superset : la carte bascule seule, le repos part après le second', async ({ page }) => {
   await page.getByRole('button', { name: 'Démarrer Push' }).click();
-  await page.getByRole('button', { name: /^Organiser Développé couché/ }).click();
+  await page.getByRole('button', { name: /^Réglages de Développé couché/ }).click();
   await page.getByRole('button', { name: /Superset avec Développé militaire/ }).click();
   await expect(page.getByText('Superset A1')).toBeVisible();
   await tap(page, 'button:has-text("Valider la série 1")');
@@ -68,4 +68,35 @@ test('lisibilité : aucune cible sous 44 px ni chiffre coupé en séance', async
     return { small: small.length, clipped: clipped.length };
   });
   expect(problems).toEqual({ small: 0, clipped: 0 });
+});
+
+test('carte allégée : fourchette et note dans « ⋯ », plus de jauge', async ({ page }) => {
+  await page.getByRole('button', { name: 'Démarrer Push' }).click();
+  const card = page.locator('main section').filter({ hasText: 'Développé couché' }).first();
+  await expect(card).not.toContainText('Tonnage effectif');
+  await expect(card.getByRole('button', { name: '+ Note' })).toHaveCount(0);
+  await page.getByRole('button', { name: /^Réglages de Développé couché/ }).click();
+  const menu = page.getByRole('dialog');
+  await menu.getByRole('radio', { name: '8–12' }).click(); // fourchette 8–12 : 80 × 8 → +1 rep
+  await menu.getByPlaceholder('Ex. : siège cran 4, prise neutre').fill('Banc cran 3');
+  await menu.getByPlaceholder('Ex. : siège cran 4, prise neutre').press('Enter');
+  await page.mouse.click(200, 20);
+  await expect(card).toContainText('80 kg × 9');
+  await expect(card).toContainText('Banc cran 3');
+});
+
+test('forme du jour : toujours modifiable après la première série', async ({ page }) => {
+  await page.getByRole('button', { name: 'Démarrer Push' }).click();
+  await tap(page, 'button:has-text("Valider la série 1")');
+  await page.getByRole('radio', { name: 'En forme' }).click();
+  await expect(page.getByRole('radio', { name: 'En forme' })).toHaveAttribute('aria-checked', 'true');
+});
+
+test('repos : une seule pastille, les durées s’ouvrent au toucher', async ({ page }) => {
+  await page.getByRole('button', { name: 'Démarrer Push' }).click();
+  const pill = page.getByRole('button', { name: /^Repos 3:00/ });
+  await expect(pill).toBeVisible();
+  await pill.click();
+  await page.getByRole('group', { name: 'Choisir une durée de repos' }).getByRole('button', { name: '1:30' }).click();
+  await expect(page.getByRole('button', { name: 'Arrêter le chrono' })).toBeVisible();
 });

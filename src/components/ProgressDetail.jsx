@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { duel, repRecords } from '../lib/stats';
+import { repRecords } from '../lib/stats';
 import { useStore } from '../lib/store';
 import { METRICS, bestOf, e1rm, fmtSet, pctChange, previousOf, seriesFor } from '../lib/training';
 import { LineChart, Segmented } from './Charts';
@@ -78,7 +78,6 @@ export default function ProgressDetail({ exerciseId, onClose, backLabel = 'Accue
   const heaviest = allSets.reduce((a, b) => (b.w > a.w ? b : a));
   const list = [...points].reverse();
   const repRows = repRecords(allSets);
-  const duelRows = duel(state.sessions, state.profiles, exerciseId);
 
   const reset = (fn) => (v) => {
     fn(v);
@@ -188,30 +187,6 @@ export default function ProgressDetail({ exerciseId, onClose, backLabel = 'Accue
                     {x.at ? fmtDay(x.at, { day: 'numeric', month: 'short' }) : ''}
                   </span>
                 </span>
-              </div>
-            ))}
-          </Group>
-        )}
-
-        {/* Duel amical : la meilleure série de chaque pote sur cet exercice */}
-        {duelRows.length > 1 && (
-          <Group title="Duel" className="mt-8" footer="1RM estimé de la meilleure série de chacun (reps + RIR).">
-            {duelRows.map((d, k) => (
-              <div key={d.profile.id} className="sep px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-[15px] font-semibold ${k === 0 ? 'bg-pink text-white' : 'bg-fill-hi text-white'}`}>{(d.profile.name || '?')[0].toUpperCase()}</span>
-                  <span className="min-w-0 flex-1 truncate text-[17px] font-semibold">
-                    {d.profile.name}
-                    {d.profile.id === state.profileId && <span className="text-[13px] font-normal text-muted"> · toi</span>}
-                  </span>
-                  <span className="text-right">
-                    <span className="font-num text-[17px] font-semibold">{fmtNum(d.e1rm)} kg</span>
-                    <span className="block font-num text-[13px] text-muted">{fmtSet(d.best)}</span>
-                  </span>
-                </div>
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-fill">
-                  <div className={`h-full rounded-full ${k === 0 ? 'bg-pink' : 'bg-muted'}`} style={{ width: `${(d.e1rm / duelRows[0].e1rm) * 100}%` }} />
-                </div>
               </div>
             ))}
           </Group>

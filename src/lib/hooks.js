@@ -79,9 +79,8 @@ function readTimer(key) {
   }
 }
 
-/** Un chrono par athlète : en binôme, chacun garde son propre repos. */
-export function useRestTimer(athleteId = '') {
-  const key = athleteId ? `${K_TIMER}:${athleteId}` : K_TIMER;
+export function useRestTimer() {
+  const key = K_TIMER;
   const [state, setState] = useState(() => readTimer(key)); // { endAt, total, rang }
 
   useEffect(() => {

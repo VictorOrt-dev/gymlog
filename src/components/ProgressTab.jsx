@@ -77,40 +77,10 @@ export default function ProgressTab() {
     <Page>
       <LargeTitle title="Progrès" subtitle={mine.length ? `${mine.length} séance${mine.length > 1 ? 's' : ''} enregistrée${mine.length > 1 ? 's' : ''}` : null} />
 
+      <ProgressSection onOpen={setProgressOf} />
+
       {mine.length > 0 && (
         <>
-          {/* Régularité */}
-          <div className="mt-5 grid grid-cols-2 gap-2">
-            <div className={`rounded-2xl px-3.5 py-3 ${streak >= 2 ? 'bg-pink text-white' : 'bg-card'}`}>
-              <div className="font-num text-[24px] font-bold leading-tight">
-                {streak} <span className="text-[15px] font-semibold">sem.</span>
-              </div>
-              <div className={`mt-0.5 text-[13px] ${streak >= 2 ? 'text-white/90' : 'text-muted'}`}>Semaines d’affilée au rendez-vous</div>
-            </div>
-            <div className="rounded-2xl bg-card px-3.5 py-3">
-              <div className="font-num text-[24px] font-bold leading-tight">{perWeek} / sem.</div>
-              <div className="mt-0.5 text-[13px] text-muted">{currentDone ? 'Objectif de la semaine atteint' : 'Ton objectif hebdo (planning)'}</div>
-            </div>
-          </div>
-
-          {/* Récupération : décharge proposée quand plusieurs exercices stagnent */}
-          {(deloadActive || stalling.length >= 2) && (
-            <div className={`mt-3 rounded-2xl px-4 py-3.5 ${deloadActive ? 'bg-fill' : 'bg-pink/12'}`}>
-              <p className="text-[15px] font-semibold">
-                {deloadActive ? `Semaine de décharge jusqu’au ${new Date(deloadUntil).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric' })}` : `${stalling.length} exercices stagnent`}
-              </p>
-              <p className="mt-0.5 text-[13px] leading-snug text-muted">
-                {deloadActive ? 'Objectifs à −10 %, une série de moins. Le corps récupère, la force revient plus haut.' : 'Une semaine allégée (−10 %, une série de moins) relance souvent la progression.'}
-              </p>
-              <button
-                onClick={deloadActive ? () => setDeload(null) : startDeload}
-                className={`mt-3 h-11 w-full rounded-full text-[15px] font-semibold active:opacity-80 ${deloadActive ? 'bg-card text-pink' : 'bg-pink text-white'}`}
-              >
-                {deloadActive ? 'Arrêter la décharge' : 'Lancer une semaine de décharge'}
-              </button>
-            </div>
-          )}
-
           {/* Volume hebdomadaire par muscle */}
           <section className="mt-9">
             <div className="mb-2 flex items-baseline justify-between px-1">
@@ -142,10 +112,41 @@ export default function ProgressTab() {
               </button>
             )}
           </section>
+
+          {/* Régularité */}
+          <div className="mt-9 grid grid-cols-2 gap-2">
+            <div className={`rounded-2xl px-3.5 py-3 ${streak >= 2 ? 'bg-pink text-white' : 'bg-card'}`}>
+              <div className="font-num text-[24px] font-bold leading-tight">
+                {streak} <span className="text-[15px] font-semibold">sem.</span>
+              </div>
+              <div className={`mt-0.5 text-[13px] ${streak >= 2 ? 'text-white/90' : 'text-muted'}`}>Semaines d’affilée au rendez-vous</div>
+            </div>
+            <div className="rounded-2xl bg-card px-3.5 py-3">
+              <div className="font-num text-[24px] font-bold leading-tight">{perWeek} / sem.</div>
+              <div className="mt-0.5 text-[13px] text-muted">{currentDone ? 'Objectif de la semaine atteint' : 'Ton objectif hebdo (planning)'}</div>
+            </div>
+          </div>
+
+          {/* Récupération : décharge proposée quand plusieurs exercices stagnent */}
+          {(deloadActive || stalling.length >= 2) && (
+            <div className={`mt-3 rounded-2xl px-4 py-3.5 ${deloadActive ? 'bg-fill' : 'bg-pink/12'}`}>
+              <p className="text-[15px] font-semibold">
+                {deloadActive ? `Semaine de décharge jusqu’au ${new Date(deloadUntil).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric' })}` : `${stalling.length} exercices stagnent`}
+              </p>
+              <p className="mt-0.5 text-[13px] leading-snug text-muted">
+                {deloadActive ? 'Objectifs à −10 %, une série de moins. Le corps récupère, la force revient plus haut.' : 'Une semaine allégée (−10 %, une série de moins) relance souvent la progression.'}
+              </p>
+              <button
+                onClick={deloadActive ? () => setDeload(null) : startDeload}
+                className={`mt-3 h-11 w-full rounded-full text-[15px] font-semibold active:opacity-80 ${deloadActive ? 'bg-card text-pink' : 'bg-pink text-white'}`}
+              >
+                {deloadActive ? 'Arrêter la décharge' : 'Lancer une semaine de décharge'}
+              </button>
+            </div>
+          )}
+
         </>
       )}
-
-      <ProgressSection onOpen={setProgressOf} />
 
       {recent.length > 0 && (
         <Group title="Dernières séances" footer="Touche une séance pour revoir et corriger chaque série. L’historique complet d’un exercice est dans sa carte.">

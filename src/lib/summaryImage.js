@@ -28,7 +28,7 @@ const ellipsis = (ctx, text, max) => {
   return `${t}…`;
 };
 
-export function drawSummary(canvas, { summary: s, athlete }, names) {
+export function drawSummary(canvas, { summary: s }, names) {
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext('2d');
@@ -53,7 +53,7 @@ export function drawSummary(canvas, { summary: s, athlete }, names) {
   ctx.textBaseline = 'alphabetic';
   ctx.fillStyle = MUTED;
   ctx.font = FONT(500, 34);
-  ctx.fillText(`${athlete ? `${athlete} · ` : ''}${new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}`, P, P + 136);
+  ctx.fillText(`${new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}`, P, P + 136);
   ctx.fillStyle = '#fff';
   ctx.font = FONT(700, 92);
   ctx.fillText(ellipsis(ctx, s.name, W - 2 * P), P, P + 236);

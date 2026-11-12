@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNow } from '../lib/hooks';
 import { mmss } from '../lib/training';
 import { Close } from './Icons';
@@ -15,22 +16,40 @@ const CAPSULE = 'mx-auto max-w-md rounded-full bg-card/90 shadow-[0_10px_40px_rg
 export default function RestTimer({ timer, current, onPreset }) {
   const { state: t, add, stop } = timer;
   const now = useNow(250, !!t);
+  const [open, setOpen] = useState(false);
 
   if (!t) {
+    // Au repos : une seule pastille discrète. Le repos part tout seul à chaque série ; les durées s'ouvrent au besoin.
     return (
       <div className={WRAP}>
-        <div className={`${CAPSULE} flex h-14 items-center gap-0.5 px-1.5`}>
-          <span className="pl-3 pr-1 text-[13px] font-medium text-muted max-[374px]:hidden">Repos</span>
-          {PRESETS.map((s) => (
-            <button
-              key={s}
-              onClick={() => onPreset(s)}
-              className={`h-11 min-w-0 flex-1 rounded-full font-num text-[15px] font-semibold tabular-nums ${s === current ? 'bg-fill-hi text-white' : 'text-muted active:text-white'}`}
-            >
-              {mmss(s)}
+        {open ? (
+          <div className={`${CAPSULE} flex h-14 items-center gap-0.5 px-1.5`} role="group" aria-label="Choisir une durée de repos">
+            {PRESETS.map((s) => (
+              <button
+                key={s}
+                onClick={() => {
+                  setOpen(false);
+                  onPreset(s);
+                }}
+                className={`h-11 min-w-0 flex-1 rounded-full font-num text-[15px] font-semibold tabular-nums ${s === current ? 'bg-fill-hi text-white' : 'text-muted active:text-white'}`}
+              >
+                {mmss(s)}
+              </button>
+            ))}
+            <button onClick={() => setOpen(false)} aria-label="Fermer" className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-muted active:bg-fill">
+              <Close className="h-5 w-5" />
             </button>
-          ))}
-        </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => setOpen(true)}
+            aria-label={`Repos ${mmss(current ?? 120)} : choisir une durée et lancer le chrono`}
+            className={`${CAPSULE} flex h-12 w-fit items-center gap-2 px-5 active:opacity-70`}
+          >
+            <span className="text-[15px] font-medium text-muted">Repos</span>
+            <span className="font-num text-[17px] font-semibold tabular-nums">{mmss(current ?? 120)}</span>
+          </button>
+        )}
       </div>
     );
   }

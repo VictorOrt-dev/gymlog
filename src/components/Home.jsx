@@ -3,7 +3,7 @@ import { MODELS, uid } from '../lib/defaults';
 import { weekStreak } from '../lib/stats';
 import { useStore } from '../lib/store';
 import { ago } from '../lib/training';
-import ProfileSheet, { isExportStale } from './ProfileSheet';
+import SettingsSheet, { isExportStale } from './SettingsSheet';
 import SessionDetail from './SessionDetail';
 import Sheet from './Sheet';
 import SwipeRow from './SwipeRow';
@@ -91,7 +91,7 @@ export default function Home({ onOpenSession }) {
         title="Aujourd'hui"
         subtitle={dateLabel}
         right={
-          <button onClick={() => setProfilesOpen(true)} aria-label={`Profil : ${profile.name}`} className="relative mb-1 active:opacity-60">
+          <button onClick={() => setProfilesOpen(true)} aria-label="Réglages et sauvegarde" className="relative mb-1 active:opacity-60">
             <Avatar name={profile.name} className="h-11 w-11 bg-fill-hi text-[17px]" />
             {isExportStale(state) && <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full bg-pink ring-2 ring-black" />}
           </button>
@@ -265,7 +265,7 @@ export default function Home({ onOpenSession }) {
 
       <TemplateEditor template={templates.find((t) => t.id === editingId)} onClose={() => setEditingId(null)} />
       <SessionDetail session={mine.find((s) => s.id === detailId)} onClose={() => setDetailId(null)} />
-      <ProfileSheet open={profilesOpen} onClose={() => setProfilesOpen(false)} />
+      <SettingsSheet open={profilesOpen} onClose={() => setProfilesOpen(false)} />
     </Page>
   );
 }

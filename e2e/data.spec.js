@@ -1,23 +1,7 @@
 import { expect, test } from '@playwright/test';
-import { finishSession, seed, tap } from './helpers';
+import { seed } from './helpers';
 
 test.beforeEach(async ({ page }) => seed(page));
-
-test('binôme : un pote entre dans la séance, chacun son chrono, bascule à la fin', async ({ page }) => {
-  await page.getByRole('button', { name: 'Démarrer Push' }).click();
-  await tap(page, 'button:has-text("Valider la série 1")');
-  await page.getByRole('button', { name: 'Ajouter un pote à la séance' }).click();
-  await page.getByPlaceholder('Prénom').fill('Max');
-  await page.keyboard.press('Enter');
-  await expect(page.getByRole('tab', { selected: true })).toContainText('Max');
-  await expect(page.getByRole('button', { name: 'Arrêter le chrono' })).toHaveCount(0);
-  await page.getByRole('tab', { name: /Victor/ }).click();
-  await expect(page.getByRole('button', { name: 'Arrêter le chrono' })).toBeVisible();
-  await finishSession(page);
-  await expect(page.getByRole('dialog', { name: 'Récapitulatif de la séance' })).toContainText('Victor');
-  await page.getByRole('button', { name: 'Continuer avec Max' }).click();
-  await expect(page.getByRole('tab', { selected: true })).toContainText('Max');
-});
 
 test('corriger une séance passée recalcule l’objectif', async ({ page }) => {
   await page.getByRole('navigation').getByText('Progrès').click();
@@ -73,7 +57,7 @@ test('import d’une sauvegarde corrompue : refusé, données intactes', async (
     messages.push(d.message());
     await d.dismiss();
   });
-  await page.getByRole('button', { name: /^Profil/ }).click();
+  await page.getByRole('button', { name: 'Réglages et sauvegarde' }).click();
   await page.locator('input[type=file]').setInputFiles({ name: 'bad.json', mimeType: 'application/json', buffer: Buffer.from(bad) });
   await expect.poll(() => messages.join(' ')).toContain('RIR invalide');
   expect(await page.evaluate(() => localStorage.getItem('gymlog:sessions'))).toBe(before);

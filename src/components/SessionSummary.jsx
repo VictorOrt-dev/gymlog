@@ -30,7 +30,7 @@ export default function SessionSummary({ data, onClose }) {
   const [sharing, setSharing] = useState(false);
   if (!data) return null;
   const names = Object.fromEntries(state.exercises.map((e) => [e.id, e.name]));
-  const { summary: s, athlete, next } = data;
+  const { summary: s } = data;
 
   return (
     <div role="dialog" aria-modal="true" aria-label="Récapitulatif de la séance" className="fixed inset-0 z-[70] flex animate-sheet flex-col overflow-y-auto overscroll-contain bg-black">
@@ -38,7 +38,7 @@ export default function SessionSummary({ data, onClose }) {
         <div className="grid h-14 w-14 place-items-center rounded-full bg-pink text-white animate-pop">
           <Check className="h-8 w-8" strokeWidth={3} />
         </div>
-        <p className="mt-4 text-[15px] font-medium text-muted">{athlete ? `${athlete} · ` : ''}Séance terminée</p>
+        <p className="mt-4 text-[15px] font-medium text-muted">Séance terminée</p>
         <h1 className="text-[34px] font-bold leading-tight tracking-tight">{s.name}</h1>
         {s.records > 0 && (
           <p className="mt-1 text-[17px] font-semibold text-pink">
@@ -96,7 +96,7 @@ export default function SessionSummary({ data, onClose }) {
 
       <div className="sticky bottom-0 mx-auto w-full max-w-md border-t-[0.5px] border-line/70 bg-black/90 px-4 pb-[max(.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
         <button onClick={onClose} className="h-14 w-full rounded-full bg-pink text-[17px] font-semibold text-white active:opacity-80">
-          {next ? `Continuer avec ${next}` : 'Terminé'}
+          Terminé
         </button>
         <button
           disabled={sharing}

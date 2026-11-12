@@ -1,10 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { RANGES } from '../lib/defaults';
-import { fmtInt, fmtKg, isBodyweight, liveRecords, main, recordBook, recordOf, roundTo, summarize, target, tonnage, totalReps, trend, workSets } from '../lib/training';
+import { fmtKg, liveRecords, main, recordBook, recordOf, roundTo, summarize, target, trend } from '../lib/training';
 import EntryPad from './exercise/EntryPad';
 import ExtraSets from './exercise/ExtraSets';
 import SetTable from './exercise/SetTable';
-import Sheet from './Sheet';
 import { Check, TabProgress } from './Icons';
 
 const WARMUP_STEPS = [[0.5, 10], [0.7, 5], [0.85, 3]]; // % de la charge de travail × reps : montée classique
@@ -32,7 +30,7 @@ const IconButton = ({ label, onClick, children }) => (
  * Trois sortes de séries : principales (comparées, records, objectif), échauffements et drop sets (notés à part).
  * L'objectif suit une double progression par fourchette, ajustée à la forme du jour et à la décharge.
  */
-export default function ExerciseCard({ exercise, item, prev, history = [], note, stalled, form = 'ok', deload = false, superset, open, onToggle, onMenu, onChart, onAdd, onUpdate, onDelete, onRange, onNote }) {
+export default function ExerciseCard({ exercise, item, prev, history = [], note, stalled, form = 'ok', deload = false, superset, open, onToggle, onMenu, onChart, onAdd, onUpdate, onDelete }) {
   const sets = item.sets;
   const indexed = sets.map((s, i) => ({ s, i }));
   const warmups = indexed.filter((x) => x.s.wu);
@@ -60,8 +58,6 @@ export default function ExerciseCard({ exercise, item, prev, history = [], note,
   const [editing, setEditing] = useState(null); // index réel de la série en correction
   const [flash, setFlash] = useState(null); // ligne qui vient d'être enregistrée (retour visuel)
   const [saved, setSaved] = useState(0); // relance l'animation du bouton
-  const [rangeOpen, setRangeOpen] = useState(false);
-  const [noteDraft, setNoteDraft] = useState(null); // non-null pendant l'édition de la note
   const ref = useRef(null);
   const validateRef = useRef(null);
 
@@ -137,10 +133,6 @@ export default function ExerciseCard({ exercise, item, prev, history = [], note,
     setEditing(null);
     setMode('work');
   };
-  const saveNote = () => {
-    if (noteDraft != null) onNote(noteDraft);
-    setNoteDraft(null);
-  };
 
   // Records en direct : chaque série se mesure à tout l'historique + aux séries d'avant aujourd'hui
   const records = useMemo(() => liveRecords(sets, history), [sets, history]);
@@ -149,12 +141,6 @@ export default function ExerciseCard({ exercise, item, prev, history = [], note,
   const rowsWanted = deload ? Math.max(1, prevSets.length - 1) : prevSets.length; // décharge : une série de moins
   const editMode = editing != null ? modeOf(sets[editing]) : null;
   const editingLabel = editing == null ? null : editMode === 'wu' ? 'Corriger l’échauffement' : editMode === 'drop' ? 'Corriger le drop set' : `Corriger la série ${mains.findIndex((x) => x.i === editing) + 1}`;
-
-  // Tonnage effectif des séries principales (RIR ≤ 3) : aujourd'hui vs la dernière fois. Reps au poids du corps.
-  const bw = isBodyweight([...main(sets), ...prevSets]);
-  const measure = (list) => (bw ? totalReps(workSets(list)) : tonnage(workSets(list)));
-  const done = measure(main(sets));
-  const goalTotal = measure(prevSets);
 
   return (
     <section ref={ref} className={`scroll-mt-20 overflow-hidden rounded-3xl bg-card ${superset ? 'ring-1 ring-pink/40' : ''}`}>
@@ -183,7 +169,7 @@ export default function ExerciseCard({ exercise, item, prev, history = [], note,
                 <TabProgress className="h-6 w-6" />
               </IconButton>
             )}
-            <IconButton label={`Organiser ${exercise.name} : déplacer, remplacer, superset, retirer`} onClick={onMenu}>
+            <IconButton label={`Réglages de ${exercise.name} : fourchette, note, ordre, remplacer, superset`} onClick={onMenu}>
               <svg viewBox="0 0 24 24" className="h-6 w-6" fill="currentColor" aria-hidden="true">
                 <circle cx="5" cy="12" r="2" />
                 <circle cx="12" cy="12" r="2" />
@@ -196,11 +182,8 @@ export default function ExerciseCard({ exercise, item, prev, history = [], note,
 
       {open && (
         <div className="@container px-3.5 pb-4">
-          {/* Réglages de l'exercice : fourchette, type de série, note — une seule ligne */}
+          {/* Type de la prochaine série : deux pastilles seulement (fourchette et note : menu « ⋯ ») */}
           <div className="-mt-2 flex flex-wrap gap-x-2">
-            <Chip onClick={() => setRangeOpen(true)} aria-label={`Fourchette de reps : ${range[0]} à ${range[1]}`}>
-              {range[0]}–{range[1]} reps
-            </Chip>
             <Chip active={mode === 'wu'} aria-pressed={mode === 'wu'} onClick={() => switchMode('wu')}>
               Échauffement
             </Chip>
@@ -209,29 +192,13 @@ export default function ExerciseCard({ exercise, item, prev, history = [], note,
                 Drop set
               </Chip>
             )}
-            {!note && noteDraft == null && <Chip onClick={() => setNoteDraft('')}>+ Note</Chip>}
           </div>
 
-          {noteDraft != null ? (
-            <input
-              autoFocus
-              value={noteDraft}
-              maxLength={120}
-              onChange={(e) => setNoteDraft(e.target.value)}
-              onBlur={saveNote}
-              onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-              placeholder="Ex. : siège cran 4, prise neutre"
-              aria-label="Note sur l'exercice"
-              enterKeyHint="done"
-              className="mb-2 h-11 w-full rounded-xl bg-fill px-3.5 text-[16px] outline-none ring-1 ring-pink/50 placeholder:text-muted"
-            />
-          ) : (
-            note && (
-              <button onClick={() => setNoteDraft(note)} className="mb-1 flex min-h-11 w-full items-center gap-2 rounded-xl px-1 text-left text-[15px] text-white/85 active:bg-fill">
-                <span aria-hidden="true" className="text-muted">✎</span>
-                <span className="min-w-0 flex-1">{note}</span>
-              </button>
-            )
+          {note && (
+            <button onClick={onMenu} className="mb-1 flex min-h-11 w-full items-center gap-2 rounded-xl px-1 text-left text-[15px] text-white/85 active:bg-fill">
+              <span aria-hidden="true" className="text-muted">✎</span>
+              <span className="min-w-0 flex-1">{note}</span>
+            </button>
           )}
 
           {/* Stagnation : un conseil discret, avant de commencer l'exercice */}
@@ -275,25 +242,6 @@ export default function ExerciseCard({ exercise, item, prev, history = [], note,
             </div>
           )}
 
-          {/* Jauge : le tonnage effectif se remplit série après série jusqu'au total de la dernière fois */}
-          {goalTotal > 0 && (
-            <div className="mt-2 px-1">
-              <div className="flex items-baseline justify-between gap-2 text-[13px]">
-                <span className="font-medium text-muted">{bw ? 'Reps de travail' : 'Tonnage effectif'}</span>
-                <span className="font-num tabular-nums">
-                  {done > goalTotal && <span className="text-pink">▲ </span>}
-                  <span className="font-semibold text-white">{fmtInt(done)}</span>
-                  <span className="text-muted">
-                    {' '}/ {fmtInt(goalTotal)} {bw ? 'reps' : 'kg'} la dernière fois
-                  </span>
-                </span>
-              </div>
-              <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-fill">
-                <div className="h-full rounded-full bg-pink transition-[width] duration-300" style={{ width: `${Math.min(100, (done / goalTotal) * 100)}%` }} />
-              </div>
-            </div>
-          )}
-
           <EntryPad
             entry={entry}
             setEntry={setEntry}
@@ -318,26 +266,6 @@ export default function ExerciseCard({ exercise, item, prev, history = [], note,
         </div>
       )}
 
-      <Sheet open={rangeOpen} onClose={() => setRangeOpen(false)} title="Fourchette de reps">
-        <p className="mb-4 text-[15px] leading-snug text-muted">
-          Monte les reps jusqu’en haut de la fourchette sur toutes tes séries principales. Une fois atteint, ajoute {fmtKg(exercise.inc)} et repars du bas.
-        </p>
-        <div className="grid grid-cols-3 gap-2">
-          {RANGES.map(([a, b]) => (
-            <button
-              key={a}
-              onClick={() => {
-                onRange([a, b]);
-                setRangeOpen(false);
-              }}
-              className={`h-14 rounded-2xl font-num text-[17px] font-semibold ${a === range[0] && b === range[1] ? 'bg-pink text-white' : 'bg-fill text-white active:bg-fill-hi'}`}
-            >
-              {a}–{b}
-            </button>
-          ))}
-        </div>
-        <p className="mt-4 text-[13px] leading-snug text-muted">Repères : 3–5 force max · 5–10 force et muscle · 8–15 muscle · 12–20 petits muscles et abdos.</p>
-      </Sheet>
     </section>
   );
 }
