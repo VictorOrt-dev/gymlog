@@ -18,3 +18,6 @@ export const Play = ({ className = 'h-6 w-6' }) => (
 );
 export const ChevronRight = (p) => <Icon d="M9 5l7 7-7 7" {...p} />;
 export const Trash = (p) => <Icon d="M4 7h16M9 7V4.5h6V7M6.5 7l1 12.5h9l1-12.5M10 11v5M14 11v5" {...p} />;
+// Onglets
+export const TabTrain = (p) => <Icon d="M6.5 7v10M17.5 7v10M3.5 9.5v5M20.5 9.5v5M6.5 12h11" strokeWidth={2} {...p} />;
+export const TabProgress = (p) => <Icon d="M4 20h16M5 15.5l4.5-4.5 3.5 3.5L19.5 8M15.5 8h4v4" strokeWidth={2} {...p} />;

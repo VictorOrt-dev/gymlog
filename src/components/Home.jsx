@@ -2,12 +2,10 @@ import { useMemo, useState } from 'react';
 import { MODELS, uid } from '../lib/defaults';
 import { useStore } from '../lib/store';
 import ProfileSheet, { isExportStale } from './ProfileSheet';
-import ProgressSection from './ProgressSection';
 import SessionDetail from './SessionDetail';
 import Sheet from './Sheet';
 import SwipeRow from './SwipeRow';
 import TemplateEditor from './TemplateEditor';
-import ProgressDetail from './ProgressDetail';
 import { useToast } from './Toast';
 import { Check, Plus } from './Icons';
 import { Avatar, Group, LargeTitle, Page, PlayButton, PrimaryButton } from './ui';
@@ -33,8 +31,8 @@ function useWeek(sessions) {
 }
 
 /**
- * L'écran principal, et le seul : pas d'onglets.
- * De haut en bas, par fréquence d'usage : la séance du jour → la semaine → la progression → mes séances.
+ * Onglet « Entraînement » : tout ce qu'on fait à la salle.
+ * De haut en bas, par fréquence d'usage : la séance du jour → la semaine → mes séances.
  */
 export default function Home({ onOpenSession }) {
   const { state, startSession, setPlanDay, saveTemplate, deleteTemplate, restoreTemplate, addTemplateFromModel } = useStore();
@@ -55,7 +53,6 @@ export default function Home({ onOpenSession }) {
   const [profilesOpen, setProfilesOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [progressOf, setProgressOf] = useState(null); // id de l'exercice dont on regarde la progression
 
   const today = week.find((d) => d.isToday);
   const todayTpl = tplById[plan[today.i]];
@@ -162,10 +159,7 @@ export default function Home({ onOpenSession }) {
         </div>
       </Group>
 
-      {/* 3. Progression : un graphique par exercice, cliquable */}
-      <ProgressSection onOpen={setProgressOf} />
-
-      {/* 4. Mes séances : démarrer, modifier, glisser pour supprimer */}
+      {/* 3. Mes séances : démarrer, modifier, glisser pour supprimer */}
       <Group
         title="Mes séances"
         footer={templates.length ? 'Touche une séance pour la modifier. Glisse-la vers la gauche pour la supprimer.' : null}
@@ -245,7 +239,6 @@ export default function Home({ onOpenSession }) {
       <TemplateEditor template={templates.find((t) => t.id === editingId)} onClose={() => setEditingId(null)} />
       <SessionDetail session={mine.find((s) => s.id === detailId)} onClose={() => setDetailId(null)} />
       <ProfileSheet open={profilesOpen} onClose={() => setProfilesOpen(false)} />
-      <ProgressDetail exerciseId={progressOf} onClose={() => setProgressOf(null)} />
     </Page>
   );
 }
