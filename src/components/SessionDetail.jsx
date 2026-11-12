@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { editSessionSet } from '../lib/session';
 import { useStore } from '../lib/store';
-import { fmtInt, fmtSet, tonnage, work } from '../lib/training';
+import { fmtInt, fmtSet, rirText, tonnage, work } from '../lib/training';
 import Sheet from './Sheet';
 import Stepper from './Stepper';
 import { useToast } from './Toast';
@@ -18,14 +18,14 @@ const RIRS = [0, 1, 2, 3, 4];
 
 /** Éditeur d'une série passée, déplié sous la ligne touchée : charge, reps, RIR, échauffement. */
 function SetEditor({ value, inc, onSave, onDelete, onCancel }) {
-  const [v, setV] = useState({ ...value, rir: value.rir ?? 2, wu: !!value.wu });
+  const [v, setV] = useState({ ...value, rir: value.rir ?? 2, kind: value.wu ? 'wu' : value.t === 'drop' ? 'drop' : 'work' });
   return (
     <div className="@container border-t-[0.5px] border-line bg-fill-hi/40 px-3 pb-3 pt-3">
       <div className="flex flex-col gap-2 @[20rem]:flex-row">
         <Stepper label="kg" value={v.w} step={inc} decimal onChange={(w) => setV((x) => ({ ...x, w }))} className="bg-card @[20rem]:flex-[1.2]" />
         <Stepper label="reps" value={v.r} step={1} min={1} onChange={(r) => setV((x) => ({ ...x, r }))} className="bg-card @[20rem]:flex-1" />
       </div>
-      {!v.wu && (
+      {v.kind !== 'wu' && (
         <div className="mt-2 grid grid-cols-5 gap-0.5 rounded-xl bg-card p-0.5" role="radiogroup" aria-label="Reps en réserve (RIR)">
           {RIRS.map((r) => (
             <button
@@ -41,18 +41,29 @@ function SetEditor({ value, inc, onSave, onDelete, onCancel }) {
           ))}
         </div>
       )}
+      <div className="mt-2 grid grid-cols-3 gap-0.5 rounded-xl bg-card p-0.5" role="radiogroup" aria-label="Type de série">
+        {[
+          ['work', 'Travail'],
+          ['wu', 'Échauffement'],
+          ['drop', 'Drop set'],
+        ].map(([k, label]) => (
+          <button
+            key={k}
+            type="button"
+            role="radio"
+            aria-checked={v.kind === k}
+            onClick={() => setV((x) => ({ ...x, kind: k }))}
+            className={`h-11 rounded-[10px] text-[13px] font-semibold ${v.kind === k ? 'bg-seg text-white' : 'text-muted'}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
       <button
         type="button"
-        aria-pressed={v.wu}
-        onClick={() => setV((x) => ({ ...x, wu: !x.wu }))}
-        className="mt-2 flex h-11 w-full items-center justify-between rounded-xl bg-card px-4 text-[15px] active:bg-fill"
+        onClick={() => onSave({ w: v.w, r: v.r, rir: v.kind === 'wu' ? null : v.rir, wu: v.kind === 'wu', t: v.kind === 'drop' ? 'drop' : null })}
+        className="mt-3 h-12 w-full rounded-full bg-pink text-[17px] font-semibold text-white active:opacity-80"
       >
-        <span>Série d’échauffement</span>
-        <span className={`flex h-7 w-12 items-center rounded-full p-0.5 transition-colors ${v.wu ? 'bg-pink' : 'bg-seg'}`}>
-          <span className={`h-6 w-6 rounded-full bg-white transition-transform ${v.wu ? 'translate-x-5' : ''}`} />
-        </span>
-      </button>
-      <button type="button" onClick={() => onSave({ w: v.w, r: v.r, rir: v.wu ? null : v.rir, wu: v.wu })} className="mt-3 h-12 w-full rounded-full bg-pink text-[17px] font-semibold text-white active:opacity-80">
         Enregistrer la correction
       </button>
       <div className="mt-2 grid grid-cols-2 gap-2">
@@ -138,9 +149,9 @@ export default function SessionDetail({ session, onClose, onDelete }) {
                       aria-expanded={open}
                       className={`flex min-h-11 w-full items-center gap-3 px-4 py-2.5 text-left active:bg-fill-hi ${x.wu ? 'text-muted' : ''} ${open ? 'bg-fill-hi/40' : ''}`}
                     >
-                      <span className="w-5 font-num text-[13px] tabular-nums text-muted">{x.wu ? 'É' : ++n}</span>
+                      <span className="w-5 font-num text-[13px] tabular-nums text-muted">{x.wu ? 'É' : x.t === 'drop' ? 'D' : ++n}</span>
                       <span className={`flex-1 font-num tabular-nums ${x.wu ? 'text-[15px]' : 'text-[17px] font-semibold'}`}>{fmtSet(x)}</span>
-                      {x.wu ? <span className="text-[13px]">Échauffement</span> : x.rir != null && <span className="text-[13px] text-muted">RIR {x.rir >= 4 ? '4+' : x.rir}</span>}
+                      {x.wu ? <span className="text-[13px]">Échauffement</span> : x.t === 'drop' ? <span className="text-[13px] text-muted">Drop set</span> : x.rir != null && <span className="text-[13px] text-muted">{rirText(x.rir)}</span>}
                       <span className="text-[13px] text-pink">{open ? 'Fermer' : 'Corriger'}</span>
                     </button>
                     {open && (

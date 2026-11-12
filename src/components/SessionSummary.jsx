@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { useStore } from '../lib/store';
+import { drawSummary } from '../lib/summaryImage';
 import { fmtInt, fmtSet } from '../lib/training';
 import { Check } from './Icons';
 
@@ -25,13 +27,14 @@ const Change = ({ pct }) =>
  */
 export default function SessionSummary({ data, onClose }) {
   const { state } = useStore();
+  const [sharing, setSharing] = useState(false);
   if (!data) return null;
   const names = Object.fromEntries(state.exercises.map((e) => [e.id, e.name]));
   const { summary: s, athlete, next } = data;
 
   return (
     <div role="dialog" aria-modal="true" aria-label="Récapitulatif de la séance" className="fixed inset-0 z-[70] flex animate-sheet flex-col overflow-y-auto overscroll-contain bg-black">
-      <div className="mx-auto w-full max-w-md flex-1 px-4 pb-6 pt-[max(1.5rem,env(safe-area-inset-top))]">
+      <div className="mx-auto w-full max-w-md flex-1 px-4 pb-10 pt-[max(1.5rem,env(safe-area-inset-top))]">
         <div className="grid h-14 w-14 place-items-center rounded-full bg-pink text-white animate-pop">
           <Check className="h-8 w-8" strokeWidth={3} />
         </div>
@@ -91,9 +94,35 @@ export default function SessionSummary({ data, onClose }) {
         </div>
       </div>
 
-      <div className="sticky bottom-0 mx-auto w-full max-w-md bg-gradient-to-t from-black via-black to-transparent px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-6">
+      <div className="sticky bottom-0 mx-auto w-full max-w-md border-t-[0.5px] border-line/70 bg-black/90 px-4 pb-[max(.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
         <button onClick={onClose} className="h-14 w-full rounded-full bg-pink text-[17px] font-semibold text-white active:opacity-80">
           {next ? `Continuer avec ${next}` : 'Terminé'}
+        </button>
+        <button
+          disabled={sharing}
+          onClick={async () => {
+            // Le récap en image, envoyée aux potes par le menu « Partager » (ou téléchargée sur ordinateur)
+            setSharing(true);
+            try {
+              const blob = await drawSummary(document.createElement('canvas'), data, names);
+              const file = new File([blob], `gymlog-${s.name}.png`, { type: 'image/png' });
+              if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], title: `Séance ${s.name}` });
+              else {
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(file);
+                a.download = file.name;
+                a.click();
+                setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+              }
+            } catch {
+              /* partage annulé */
+            } finally {
+              setSharing(false);
+            }
+          }}
+          className="mt-1 h-12 w-full text-[17px] text-pink active:opacity-50 disabled:opacity-40"
+        >
+          Partager le récap
         </button>
       </div>
     </div>

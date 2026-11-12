@@ -4,6 +4,7 @@ import ProgressTab from './components/ProgressTab';
 import TabBar from './components/TabBar';
 import SessionLogger from './components/SessionLogger';
 import SessionSummary from './components/SessionSummary';
+import SharedTemplate from './components/SharedTemplate';
 import StorageAlert from './components/StorageAlert';
 import { ToastProvider, useToast } from './components/Toast';
 import { StoreProvider, useStore } from './lib/store';
@@ -59,6 +60,7 @@ function Shell() {
         </>
       )}
       <SessionSummary data={summary} onClose={() => setSummary(null)} />
+      <SharedTemplate />
     </>
   );
 }

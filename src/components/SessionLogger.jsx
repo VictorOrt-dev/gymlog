@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { DEFAULT_REST } from '../lib/defaults';
 import { useNow, useRestTimer, useWakeLock } from '../lib/hooks';
-import { moveItem, removeItem, replaceItem } from '../lib/session';
+import { linkSuperset, moveItem, removeItem, replaceItem, supersetOf, supersetPairs, unlinkSuperset } from '../lib/session';
 import { useStore } from '../lib/store';
 import { buildSummary } from '../lib/summary';
 import { historySets, isStalling, lastPerformances, mmss, seriesFor, work } from '../lib/training';
 import ExerciseCard from './ExerciseCard';
 import ExercisePicker from './ExercisePicker';
+import ProgressDetail from './ProgressDetail';
 import RestTimer from './RestTimer';
 import Sheet from './Sheet';
 import { Back, Plus, Up } from './Icons';
@@ -27,7 +28,7 @@ const firstIncomplete = (items) => Math.max(0, items.findIndex((it) => !it.sets.
  * En binôme : un tap sur l'avatar du pote, et on passe sur SA séance (son exercice ouvert, son chrono).
  */
 export default function SessionLogger({ onExit, onFinished }) {
-  const { state, setDraft, finishSession, setExerciseRest, setExerciseRange, setNote, switchAthlete, addAthlete } = useStore();
+  const { state, setDraft, finishSession, setExerciseRest, setExerciseRange, setNote, switchAthlete, addAthlete, rememberSupersets } = useStore();
   const pid = state.profileId;
   const draft = state.drafts[pid];
   const items = draft?.items ?? [];
@@ -50,6 +51,7 @@ export default function SessionLogger({ onExit, onFinished }) {
   const [confirming, setConfirming] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [newMate, setNewMate] = useState(null); // non-null : saisie du prénom d'un pote
+  const [chartOf, setChartOf] = useState(null); // courbe d'un exercice, ouverte sans quitter la séance
   const timer = useRestTimer(pid);
   useWakeLock(true);
 
@@ -78,24 +80,61 @@ export default function SessionLogger({ onExit, onFinished }) {
     setOpenState(i);
     setDraft((d) => ({ ...d, open: i }));
   };
+  const form = draft.form ?? 'ok';
+  const deloadActive = (state.deload?.[pid] ?? 0) > Date.now();
+  const FORMS = [
+    ['low', 'Fatigué'],
+    ['ok', 'Normal'],
+    ['high', 'En forme'],
+  ];
+  // Lettres des supersets (A, B, C…) dans l'ordre de la séance
+  const ssLabel = {};
+  let letter = 0;
+  items.forEach((_, i) => {
+    const r = supersetOf(items, i);
+    if (r?.first) {
+      const L = String.fromCharCode(65 + letter++);
+      ssLabel[i] = `${L}1`;
+      ssLabel[r.partner] = `${L}2`;
+    }
+  });
+  /** Applique un changement de structure et mémorise les supersets dans la séance type. */
+  const restructure = (next) => {
+    setDraft(() => next);
+    setOpenState(next.open ?? open);
+    if (draft.templateId && JSON.stringify(supersetPairs(next.items)) !== JSON.stringify(supersetPairs(items))) rememberSupersets(draft.templateId, supersetPairs(next.items));
+  };
+
   const patchSets = (i, fn) => setDraft((d) => ({ ...d, items: d.items.map((it, j) => (j === i ? { ...it, sets: fn(it.sets) } : it)) }));
 
   const move = (i, dir) => {
-    const next = moveItem({ ...draft, open }, i, dir);
-    setDraft(() => next);
-    setOpenState(next.open);
+    restructure(moveItem({ ...draft, open }, i, dir));
     setMenu(Math.min(items.length - 1, Math.max(0, i + dir))); // le menu suit l'exercice
   };
-  const replace = (i, id) => {
-    const next = replaceItem({ ...draft, open }, i, id);
-    setDraft(() => next);
-    setOpenState(next.open);
-  };
+  const replace = (i, id) => restructure(replaceItem({ ...draft, open }, i, id));
   const remove = (i) => {
-    setDraft((d) => removeItem(d, i));
-    setOpenState(-1);
+    restructure(removeItem({ ...draft, open }, i));
     setMenu(null);
     setConfirmRemove(false);
+  };
+  const toggleSuperset = (i) => {
+    restructure(supersetOf(items, i) ? unlinkSuperset({ ...draft, open }, i) : linkSuperset({ ...draft, open }, i));
+    setMenu(null);
+  };
+
+  /**
+   * Après une série : repos automatique, sauf dans un superset où l'on enchaîne d'abord le second exercice.
+   * Échauffement → 60 s. Drop set → le repos repart à zéro (il compte après la dernière série de la chaîne).
+   */
+  const afterSet = (i, set) => {
+    const ss = !set.wu && supersetOf(items, i);
+    if (ss?.first) {
+      timer.stop();
+      setOpen(ss.partner); // A1 → A2 sans repos
+      return;
+    }
+    timer.start(set.wu ? WARMUP_REST : restFor(byId[items[i].exerciseId]));
+    if (ss && !ss.first) setOpen(ss.partner); // A2 → repos → retour sur A1
   };
 
   const finish = () => {
@@ -158,6 +197,32 @@ export default function SessionLogger({ onExit, onFinished }) {
       </header>
 
       <main className="mx-auto max-w-md space-y-3 px-3 pt-3">
+        {/* Forme du jour : un tap, et les objectifs s'adaptent (autorégulation). Disparaît dès la 1re série. */}
+        {total === 0 && (
+          <div className="rounded-2xl bg-card p-3">
+            <div className="mb-2 flex items-baseline justify-between px-1">
+              <span className="text-[15px] font-semibold">Comment tu te sens ?</span>
+              {deloadActive && <span className="text-[13px] font-semibold text-pink">Semaine de décharge</span>}
+            </div>
+            <div className="grid grid-cols-3 gap-0.5 rounded-xl bg-fill p-0.5" role="radiogroup" aria-label="Forme du jour">
+              {FORMS.map(([k, label]) => (
+                <button
+                  key={k}
+                  role="radio"
+                  aria-checked={form === k}
+                  onClick={() => setDraft((d) => ({ ...d, form: k }))}
+                  className={`h-11 rounded-[10px] text-[15px] font-semibold transition-colors ${form === k ? (k === 'high' ? 'bg-pink text-white' : 'bg-seg text-white') : 'text-muted'}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 px-1 text-[13px] leading-snug text-muted">
+              {form === 'low' ? 'Jour sans : objectifs à −5 %, on entretient.' : form === 'high' ? 'En forme : on charge un cran plus tôt si tu es proche du haut de fourchette.' : 'Objectifs habituels : double progression.'}
+            </p>
+          </div>
+        )}
+
         {items.map((it, i) => (
           <ExerciseCard
             key={it.exerciseId}
@@ -175,9 +240,13 @@ export default function SessionLogger({ onExit, onFinished }) {
               setConfirmRemove(false);
               setMenu(i);
             }}
+            form={form}
+            deload={deloadActive}
+            superset={ssLabel[i]}
+            onChart={() => setChartOf(it.exerciseId)}
             onAdd={(set) => {
               patchSets(i, (s) => [...s, { ...set, at: Date.now() }]);
-              timer.start(set.wu ? WARMUP_REST : restFor(byId[it.exerciseId])); // le repos démarre tout seul (court après un échauffement)
+              afterSet(i, set);
             }}
             onUpdate={(k, set) => patchSets(i, (s) => s.map((x, j) => (j === k ? { ...x, ...set } : x)))}
             onDelete={(k) => patchSets(i, (s) => s.filter((_, j) => j !== k))}
@@ -234,6 +303,11 @@ export default function SessionLogger({ onExit, onFinished }) {
             >
               Remplacer (machine prise)
             </button>
+            {(supersetOf(items, menu) || menu < items.length - 1) && (
+              <button onClick={() => toggleSuperset(menu)} className="mt-2 h-14 w-full rounded-2xl bg-fill text-[17px] font-semibold active:bg-fill-hi">
+                {supersetOf(items, menu) ? 'Délier le superset' : `Superset avec ${nameOf(items[menu + 1].exerciseId)}`}
+              </button>
+            )}
             <p className="mt-2 px-1 text-[13px] leading-snug text-muted">
               {menuItem.sets.length
                 ? 'Les séries déjà faites restent enregistrées sur cet exercice ; le remplaçant s’insère juste après.'
@@ -272,6 +346,8 @@ export default function SessionLogger({ onExit, onFinished }) {
         </form>
         <p className="mt-3 px-1 text-[13px] leading-snug text-muted">Il reçoit la même séance, dans le même ordre. Chacun garde ses charges, son historique et son chrono.</p>
       </Sheet>
+
+      <ProgressDetail exerciseId={chartOf} onClose={() => setChartOf(null)} backLabel="Séance" />
 
       <ExercisePicker
         open={picking != null}

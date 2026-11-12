@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { MODELS, uid } from '../lib/defaults';
+import { weekStreak } from '../lib/stats';
 import { useStore } from '../lib/store';
+import { ago } from '../lib/training';
 import ProfileSheet, { isExportStale } from './ProfileSheet';
 import SessionDetail from './SessionDetail';
 import Sheet from './Sheet';
@@ -35,7 +37,7 @@ function useWeek(sessions) {
  * De haut en bas, par fréquence d'usage : la séance du jour → la semaine → mes séances.
  */
 export default function Home({ onOpenSession }) {
-  const { state, startSession, setPlanDay, saveTemplate, deleteTemplate, restoreTemplate, addTemplateFromModel } = useStore();
+  const { state, startSession, setPlanDay, saveTemplate, deleteTemplate, restoreTemplate, addTemplateFromModel, exportData } = useStore();
   const notify = useToast();
   const pid = state.profileId;
   const profile = state.profiles.find((p) => p.id === pid) ?? state.profiles[0];
@@ -54,9 +56,11 @@ export default function Home({ onOpenSession }) {
   const [editingId, setEditingId] = useState(null);
 
   const today = week.find((d) => d.isToday);
+  const deloadActive = (state.deload?.[pid] ?? 0) > Date.now();
   const todayTpl = tplById[plan[today.i]];
   const doneCount = week.filter((d) => d.done).length;
   const plannedCount = plan.filter((x) => tplById[x]).length;
+  const { streak } = weekStreak(mine, plannedCount || 3);
   const preview = (ids) => ids.map((id) => exName[id]).filter(Boolean).join(' · ');
   const dateLabel = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 
@@ -124,10 +128,26 @@ export default function Home({ onOpenSession }) {
         )}
       </div>
 
+      {/* Sauvegarde : rappel quand des séances ne sont pas encore à l'abri (téléphone perdu = données perdues) */}
+      {isExportStale(state) && (
+        <div className="mt-3 flex items-center gap-3 rounded-2xl bg-card py-3 pl-4 pr-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-[15px] font-semibold">Mets tes séances à l’abri</p>
+            <p className="text-[13px] text-muted">{state.lastExport ? `Dernière sauvegarde ${ago(state.lastExport)}` : 'Aucune sauvegarde pour l’instant'} · iCloud, Drive, AirDrop…</p>
+          </div>
+          <button
+            onClick={async () => (await exportData()) && notify('Sauvegarde envoyée')}
+            className="h-11 shrink-0 rounded-full bg-pink px-4 text-[15px] font-semibold text-white active:opacity-80"
+          >
+            Sauvegarder
+          </button>
+        </div>
+      )}
+
       {/* 2. La semaine : fréquence et jours off d'un coup d'œil */}
       <Group
         title="Cette semaine"
-        footer={`${doneCount} séance${doneCount > 1 ? 's' : ''} sur ${plannedCount} cette semaine · touche un jour pour changer sa séance`}
+        footer={`${doneCount} séance${doneCount > 1 ? 's' : ''} sur ${plannedCount}${streak >= 2 ? ` · ${streak} semaines d’affilée` : ''}${deloadActive ? ' · semaine de décharge' : ''} · touche un jour pour changer sa séance`}
       >
         <div className="grid grid-cols-7 px-1 py-4">
           {week.map((d) => {

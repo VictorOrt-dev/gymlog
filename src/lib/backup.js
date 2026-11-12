@@ -24,6 +24,7 @@ function checkSet(s, where) {
   check(Number.isInteger(s.r) && s.r >= 0 && s.r <= 1000, `${where} : reps invalides (${s.r})`);
   check(s.rir == null || (Number.isInteger(s.rir) && s.rir >= 0 && s.rir <= 10), `${where} : RIR invalide (${s.rir})`);
   check(s.wu == null || typeof s.wu === 'boolean', `${where} : marqueur d'échauffement invalide`);
+  check(s.t == null || s.t === 'drop', `${where} : type de série inconnu`);
 }
 
 function checkSession(s, i, profileIds) {
@@ -61,11 +62,15 @@ export function validate(data) {
   });
 
   check(Array.isArray(data.templates), 'Liste de séances types manquante.');
-  data.templates.forEach((t, i) => check(isObj(t) && isStr(t.id) && profileIds.has(t.profileId) && Array.isArray(t.exerciseIds), `Séance type n° ${i + 1} invalide`));
+  data.templates.forEach((t, i) => {
+    check(isObj(t) && isStr(t.id) && profileIds.has(t.profileId) && Array.isArray(t.exerciseIds), `Séance type n° ${i + 1} invalide`);
+    check(t.supersets == null || (Array.isArray(t.supersets) && t.supersets.every((p) => Array.isArray(p) && p.length === 2 && p.every(isStr))), `Séance type n° ${i + 1} : supersets invalides`);
+  });
 
   check(data.plans == null || isObj(data.plans), 'Planning invalide.');
   check(data.drafts == null || isObj(data.drafts), 'Séances en cours invalides.');
   check(data.notes == null || isObj(data.notes), 'Notes invalides.');
+  check(data.deload == null || isObj(data.deload), 'Décharge invalide.');
   check(Array.isArray(data.sessions), 'Historique des séances manquant.');
   data.sessions.forEach((s, i) => checkSession(s, i, profileIds));
   Object.values(data.drafts ?? {}).forEach((d, i) => checkSession(d, i, profileIds));
@@ -88,7 +93,7 @@ export function parseBackup(text) {
     }
     validate(data);
     const { app, exportedAt, ...rest } = data; // eslint-disable-line no-unused-vars
-    const migrated = migrate({ plans: {}, drafts: {}, notes: {}, lastExport: null, ...rest });
+    const migrated = migrate({ plans: {}, drafts: {}, notes: {}, deload: {}, lastExport: null, ...rest });
     migrated.sessions = [...migrated.sessions].sort((a, b) => a.startedAt - b.startedAt);
     return { ok: true, data: migrated };
   } catch (e) {

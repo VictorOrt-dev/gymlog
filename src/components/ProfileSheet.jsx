@@ -6,9 +6,11 @@ import Sheet from './Sheet';
 import { Check } from './Icons';
 import { Avatar } from './ui';
 
+/** Sauvegarde à refaire : des séances depuis le dernier export, et plus d'une semaine (ou jamais, dès 3 séances). */
 export const isExportStale = (state) => {
-  const mine = state.sessions.filter((s) => s.profileId === state.profileId).length;
-  return mine >= 3 && (!state.lastExport || Date.now() - state.lastExport > 14 * 864e5);
+  const since = state.sessions.filter((s) => s.startedAt > (state.lastExport ?? 0)).length;
+  if (!state.lastExport) return state.sessions.length >= 3;
+  return since > 0 && Date.now() - state.lastExport > 7 * 864e5;
 };
 
 /** Profils (les potes) + sauvegarde des données : tout ce qui concerne « le compte », derrière l'avatar. */

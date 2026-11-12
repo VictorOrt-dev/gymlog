@@ -35,7 +35,7 @@ export function withAthlete(state, pid) {
 export function moveItem(draft, i, dir) {
   const j = i + dir;
   if (j < 0 || j >= draft.items.length) return draft;
-  const items = [...draft.items];
+  const items = unlinkAround(draft.items, i);
   [items[i], items[j]] = [items[j], items[i]];
   const open = draft.open === i ? j : draft.open === j ? i : draft.open;
   return { ...draft, items, open };
@@ -49,13 +49,56 @@ export function replaceItem(draft, i, exerciseId) {
   if (draft.items.some((it) => it.exerciseId === exerciseId)) return draft;
   const keep = draft.items[i].sets.length > 0;
   const at = keep ? i + 1 : i;
-  const items = [...draft.items];
-  items.splice(at, keep ? 0 : 1, { exerciseId, sets: [] });
+  const items = keep ? unlinkAround(draft.items, i) : [...draft.items];
+  items.splice(at, keep ? 0 : 1, { exerciseId, sets: [], ...(!keep && draft.items[i].ss ? { ss: draft.items[i].ss } : {}) });
   return { ...draft, items, open: at };
 }
 
 export function removeItem(draft, i) {
-  return { ...draft, items: draft.items.filter((_, j) => j !== i), open: -1 };
+  return { ...draft, items: unlinkAround(draft.items, i).filter((_, j) => j !== i), open: -1 };
+}
+
+// ── Supersets : deux exercices enchaînés, le repos ne part qu'après le second ──
+
+/** Rôle d'un exercice dans un superset : { partner, first } ou null. */
+export function supersetOf(items, i) {
+  const id = items[i]?.ss;
+  if (!id) return null;
+  if (items[i + 1]?.ss === id) return { partner: i + 1, first: true };
+  if (items[i - 1]?.ss === id) return { partner: i - 1, first: false };
+  return null;
+}
+
+/** Lie l'exercice i au suivant (et défait leurs anciens supersets). */
+export function linkSuperset(draft, i) {
+  if (i < 0 || i >= draft.items.length - 1) return draft;
+  const id = uid();
+  const items = unlinkAround(unlinkAround(draft.items, i), i + 1).map((it, j) => (j === i || j === i + 1 ? { ...it, ss: id } : it));
+  return { ...draft, items };
+}
+
+export function unlinkSuperset(draft, i) {
+  return { ...draft, items: unlinkAround(draft.items, i) };
+}
+
+/** Retire le marqueur de superset de l'exercice i et de son partenaire. */
+function unlinkAround(items, i) {
+  const id = items[i]?.ss;
+  if (!id) return [...items];
+  return items.map((it) => (it.ss === id ? (({ ss, ...rest }) => rest)(it) : it)); // eslint-disable-line no-unused-vars
+}
+
+/** Paires de supersets d'une séance, en ids d'exercices (pour les mémoriser dans la séance type). */
+export const supersetPairs = (items) => items.flatMap((it, i) => (supersetOf(items, i)?.first ? [[it.exerciseId, items[i + 1].exerciseId]] : []));
+
+/** Applique les paires mémorisées à une séance qui démarre (si les deux exercices se suivent). */
+export function applySupersets(items, pairs = []) {
+  let out = items;
+  for (const pair of pairs) {
+    const i = out.findIndex((it) => it.exerciseId === pair[0]);
+    if (i >= 0 && out[i + 1]?.exerciseId === pair[1]) out = linkSuperset({ items: out }, i).items;
+  }
+  return out;
 }
 
 /**
@@ -73,10 +116,13 @@ export function editSessionSet(session, itemIdx, setIdx, patch) {
   return items.length ? { ...session, items } : null;
 }
 
-/** Une série propre : un échauffement n'a pas de RIR, une série de travail n'a pas de marqueur. */
+/** Une série propre : un échauffement n'a pas de RIR ; un seul type à la fois (échauffement OU drop set). */
 function clean(s) {
   const out = { ...s, w: Math.max(0, Math.round(s.w * 100) / 100), r: Math.max(0, Math.round(s.r)) };
-  if (out.wu) out.rir = null;
-  else delete out.wu;
+  if (out.wu) {
+    out.rir = null;
+    delete out.t;
+  } else delete out.wu;
+  if (out.t !== 'drop') delete out.t;
   return out;
 }

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { duel, repRecords } from '../lib/stats';
 import { useStore } from '../lib/store';
 import { METRICS, bestOf, e1rm, fmtSet, pctChange, previousOf, seriesFor } from '../lib/training';
 import { LineChart, Segmented } from './Charts';
@@ -36,7 +37,7 @@ export const Change = ({ pct, vs }) =>
  * Par défaut : la force (meilleure série → 1RM estimé). En option : le tonnage effectif (séries RIR ≤ 3).
  * Chaque séance de la liste s'ouvre : c'est aussi l'historique de l'exercice.
  */
-export default function ProgressDetail({ exerciseId, onClose }) {
+export default function ProgressDetail({ exerciseId, onClose, backLabel = 'Accueil' }) {
   const { state, deleteSession, restoreSession } = useStore();
   const notify = useToast();
   const open = exerciseId != null;
@@ -76,6 +77,8 @@ export default function ProgressDetail({ exerciseId, onClose }) {
   const record = bestOf(allSets);
   const heaviest = allSets.reduce((a, b) => (b.w > a.w ? b : a));
   const list = [...points].reverse();
+  const repRows = repRecords(allSets);
+  const duelRows = duel(state.sessions, state.profiles, exerciseId);
 
   const reset = (fn) => (v) => {
     fn(v);
@@ -94,7 +97,7 @@ export default function ProgressDetail({ exerciseId, onClose }) {
         <div className="mx-auto flex h-14 max-w-md items-center px-2">
           <button onClick={onClose} className="flex h-11 items-center pr-2 text-[17px] text-pink active:opacity-50">
             <Back className="h-6 w-6" strokeWidth={2.5} />
-            Accueil
+            {backLabel}
           </button>
         </div>
       </header>
@@ -169,6 +172,50 @@ export default function ProgressDetail({ exerciseId, onClose }) {
             <span className="font-num text-[17px] font-semibold">{series.points.length}</span>
           </div>
         </Group>
+
+        {/* Records par nombre de reps : la charge max soulevée pour au moins N reps */}
+        {!series.bw && repRows.length > 0 && (
+          <Group title="Records par reps" className="mt-8" footer="La charge la plus lourde soulevée pour au moins ce nombre de reps.">
+            {repRows.map((x) => (
+              <div key={x.r} className="sep flex items-center justify-between gap-3 px-4 py-3">
+                <span className="text-[17px]">
+                  {x.r} rep{x.r > 1 ? 's' : ''}
+                </span>
+                <span className="text-right">
+                  <span className="font-num text-[17px] font-semibold">{fmtNum(x.w)} kg</span>
+                  <span className="block text-[13px] text-muted">
+                    {x.reps !== x.r ? `fait à ${x.reps} reps · ` : ''}
+                    {x.at ? fmtDay(x.at, { day: 'numeric', month: 'short' }) : ''}
+                  </span>
+                </span>
+              </div>
+            ))}
+          </Group>
+        )}
+
+        {/* Duel amical : la meilleure série de chaque pote sur cet exercice */}
+        {duelRows.length > 1 && (
+          <Group title="Duel" className="mt-8" footer="1RM estimé de la meilleure série de chacun (reps + RIR).">
+            {duelRows.map((d, k) => (
+              <div key={d.profile.id} className="sep px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-[15px] font-semibold ${k === 0 ? 'bg-pink text-white' : 'bg-fill-hi text-white'}`}>{(d.profile.name || '?')[0].toUpperCase()}</span>
+                  <span className="min-w-0 flex-1 truncate text-[17px] font-semibold">
+                    {d.profile.name}
+                    {d.profile.id === state.profileId && <span className="text-[13px] font-normal text-muted"> · toi</span>}
+                  </span>
+                  <span className="text-right">
+                    <span className="font-num text-[17px] font-semibold">{fmtNum(d.e1rm)} kg</span>
+                    <span className="block font-num text-[13px] text-muted">{fmtSet(d.best)}</span>
+                  </span>
+                </div>
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-fill">
+                  <div className={`h-full rounded-full ${k === 0 ? 'bg-pink' : 'bg-muted'}`} style={{ width: `${(d.e1rm / duelRows[0].e1rm) * 100}%` }} />
+                </div>
+              </div>
+            ))}
+          </Group>
+        )}
 
         {/* Les valeurs de la courbe, lisibles sans la toucher — et l'historique : chaque séance s'ouvre */}
         <Group title="Séance par séance" className="mt-8" footer="Touche une séance pour revoir chaque série.">

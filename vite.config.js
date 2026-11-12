@@ -6,4 +6,5 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineConfig({
   base: './',
   plugins: [react(), tailwindcss()],
+  test: { include: ['tests/**/*.test.js'] }, // Vitest : tests unitaires ; Playwright : dossier e2e/
 });

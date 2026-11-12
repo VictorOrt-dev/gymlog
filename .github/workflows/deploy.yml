@@ -1,4 +1,4 @@
-# Push sur main → tests → build → GitHub Pages.
+# Push sur main → tests unitaires + parcours navigateur → build → GitHub Pages.
 # Une seule fois : Settings → Pages → Source : "GitHub Actions".
 name: Deploy
 
@@ -32,10 +32,23 @@ jobs:
         with:
           path: dist
 
+  e2e:
+    # Parcours réels (Playwright, Chromium) en format iPhone 13 et iPhone SE.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+
   deploy:
-    # Les tests doivent passer : sinon, rien n'est mis en ligne.
+    # Tests unitaires ET parcours doivent passer : sinon, rien n'est mis en ligne.
     if: github.event_name != 'pull_request'
-    needs: test
+    needs: [test, e2e]
     runs-on: ubuntu-24.04
     permissions:
       pages: write

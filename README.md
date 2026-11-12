@@ -15,7 +15,11 @@ Pendant la séance, tout est sur la carte de l'exercice :
 
 - **La semaine dernière, côte à côte** : chaque série de travail en face de la même série de la dernière fois (poids × reps · RIR). La ligne « À battre » montre exactement quoi dépasser.
 - **Double progression par fourchette** (ex. 8–12, réglable en un tap) : on monte les reps jusqu'en haut de la fourchette sur toutes les séries, puis on charge et on repart du bas. L'objectif du jour est pré-rempli.
-- **Échauffements** : un tap sur « Échauffement », la montée est proposée (50 % × 10, 70 % × 5, 85 % × 3). Ils sont notés mais exclus de « À battre », des records et des courbes.
+- **Forme du jour** : « Fatigué / Normal / En forme » en début de séance. Jour sans → objectifs à −5 % ; en forme → on charge un cran plus tôt.
+- **Échauffements** : un tap sur « Échauffement », la montée est proposée (50 % × 10, 70 % × 5, 85 % × 3). Ils sont notés mais exclus de « À battre », des records et des courbes. 60 s de repos seulement.
+- **Drop sets** : un tap sur « Drop set » après une série (−20 % pré-rempli). Comptés dans le volume, exclus des comparaisons et des records. Un RIR 0 s'affiche « Échec ».
+- **Supersets** : « ⋯ » → « Superset avec… ». Après une série du premier exercice, la carte bascule seule sur le second, sans repos ; le repos part après le second. Mémorisé dans la séance type.
+- **Ta courbe sans quitter la séance** : l'icône courbe sur l'exercice ouvert.
 - **Note par exercice** (« banc cran 3, prise 2 doigts »), gardée d'une séance à l'autre, propre à chaque profil.
 - **Alerte de stagnation** : si la force ne progresse plus depuis 3 séances, un conseil discret (séance allégée ou variante).
 - **Jauge de tonnage effectif** (séries RIR ≤ 3) jusqu'au total de la dernière fois.
@@ -23,7 +27,11 @@ Pendant la séance, tout est sur la carte de l'exercice :
 - **Le repos démarre tout seul** à chaque série validée : durée mémorisée par exercice, 60 s seulement après un échauffement. À la fin, l'écran entier clignote en rose (visible à 2 mètres), avec bip et vibration.
 - **Pensé pour le pouce** : toutes les cibles font au moins 44 px, la mise en page s'adapte jusqu'à l'iPhone SE, Valider reste toujours au-dessus du chrono, et chaque série validée s'allume brièvement.
 
-**À la fin, un récapitulatif** : durée, séries de travail, records battus, tonnage effectif, et chaque exercice comparé à ta dernière séance du même type.
+**À la fin, un récapitulatif** : durée, séries de travail, records battus, tonnage effectif, et chaque exercice comparé à ta dernière séance du même type. « Partager le récap » en fait une image à envoyer aux potes.
+
+**Onglet Progrès** : régularité (semaines d'affilée au rendez-vous), **volume par muscle** sur la semaine (½ série pour les muscles secondaires, repère 10–20 séries), proposition de **semaine de décharge** quand plusieurs exercices stagnent (−10 %, une série de moins), force par exercice. Dans la vue d'un exercice : **records par reps** et **duel** entre potes.
+
+**Sauvegarde en 1 tap** : le menu « Partager » du téléphone (iCloud Drive, Google Drive, AirDrop…), avec un rappel sur l'accueil quand des séances ne sont pas à l'abri. **Envoyer une séance type à un pote** : un lien, sans serveur ; il l'ajoute en un tap.
 
 **Une erreur de saisie ?** Dans le détail d'une séance passée, touche une série pour corriger sa charge, ses reps ou son RIR, la supprimer ou la passer en échauffement (avec « Annuler »). Objectifs, records et courbes se recalculent aussitôt.
 
@@ -46,10 +54,14 @@ En `http://` sur le réseau local, l'écran qui reste allumé et le hors-ligne s
 ## Tests
 
 ```bash
-npm test
+npm test          # 88 tests unitaires (Vitest)
+npm run test:e2e  # 20 parcours dans un vrai navigateur (Playwright), en iPhone 13 et iPhone SE
 ```
 
-63 tests unitaires (Vitest) couvrent la logique critique : 1RM ajusté au RIR, double progression par fourchette, échauffements, stagnation, migration des données, validation des sauvegardes, binôme, réordonner / remplacer, records, récapitulatif, correction des séances passées. Ils tournent sur GitHub à chaque push : **si un test échoue, rien n'est mis en ligne.**
+Les tests unitaires couvrent la logique critique : 1RM ajusté au RIR, double progression par fourchette, forme du jour, décharge, échauffements, drop sets, supersets, records, volume par muscle, régularité, migration des données, sauvegardes, envoi de séance par lien.
+Les parcours rejouent la salle : séance avec record et récapitulatif, forme du jour, drop set, superset, binôme, correction d'une séance passée, volume, lien de séance, import corrompu, cibles tactiles.
+
+Les deux tournent sur GitHub à chaque push : **si un seul test échoue, rien n'est mis en ligne.**
 
 ## Mettre en ligne (GitHub Pages)
 
@@ -70,21 +82,24 @@ src/
 │  ├─ defaults.js           91 exercices par muscle, modèles, migration des données
 │  ├─ training.js           la logique de coach : 1RM × RIR, fourchettes, échauffements, stagnation
 │  ├─ session.js            binôme, réordonner, remplacer, corriger une séance (logique pure, testée)
-│  ├─ summary.js            récapitulatif de fin de séance
+│  ├─ summary.js            récapitulatif de fin de séance (+ summaryImage.js : l'image partageable)
+│  ├─ stats.js              volume par muscle, régularité, records par reps, duel
+│  ├─ share.js              envoyer une séance type par lien (encodage + validation)
 │  ├─ backup.js             export signé + import validé champ par champ
 │  └─ hooks.js              timer de repos, wake lock, horloge
 ├─ components/
    ├─ Home.jsx              onglet Entraînement (séance du jour, semaine, séances)
    ├─ ProgressTab.jsx       onglet Progrès
    ├─ SessionLogger.jsx     ★ la séance en cours (95 % du temps)
-   ├─ ExerciseCard.jsx      ★ saisie + semaine dernière côte à côte + jauge de tonnage
+   ├─ ExerciseCard.jsx      ★ une carte d'exercice (+ exercise/ : tableau, saisie, échauffements & drop sets)
    ├─ ProgressSection.jsx   une carte de force par exercice, cliquable
    ├─ ProgressDetail.jsx    vue dédiée : courbe, force / tonnage effectif, records
    ├─ Charts.jsx            graphiques SVG faits main (aucune librairie)
    ├─ SwipeRow.jsx          glisser pour supprimer
    ├─ ExercisePicker · TemplateEditor · SessionDetail · ProfileSheet
    └─ RestTimer · Stepper · Toast · Sheet · StorageAlert · ui · Icons
-tests/                       Vitest : training, migrate, backup, session, records
+tests/                       Vitest : training, migrate, backup, session, records, coach2
+e2e/                         Playwright : parcours réels en format téléphone
 ```
 
 ## Les indicateurs (pas de piège du tonnage brut)

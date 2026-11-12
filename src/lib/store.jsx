@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { serializeBackup } from './backup';
-import { withAthlete } from './session';
+import { applySupersets, withAthlete } from './session';
+import { norm } from './training';
 import { CUSTOM_GROUP, DEFAULT_REST, initialState, migrate, seedProfile, templateFromModel, uid } from './defaults';
 
 const K_DATA = 'gymlog:data';
@@ -70,7 +71,11 @@ export function StoreProvider({ children }) {
             templateId: tpl?.id ?? null,
             name: tpl?.name || 'Séance libre',
             startedAt: Date.now(),
-            items: (tpl?.exerciseIds ?? []).filter((id) => known.has(id)).map((exerciseId) => ({ exerciseId, sets: [] })),
+            form: 'ok', // forme du jour : 'low' | 'ok' | 'high'
+            items: applySupersets(
+              (tpl?.exerciseIds ?? []).filter((id) => known.has(id)).map((exerciseId) => ({ exerciseId, sets: [] })),
+              tpl?.supersets,
+            ),
           };
         }),
 
@@ -167,14 +172,65 @@ export function StoreProvider({ children }) {
           return withAthlete(next, profile.id);
         }),
 
-      exportData: () => {
-        const blob = new Blob([serializeBackup(current.current)], { type: 'application/json' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `gymlog-${new Date().toISOString().slice(0, 10)}.json`;
-        a.click();
-        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-        set((s) => ({ ...s, lastExport: Date.now() }));
+      /**
+       * Sauvegarde en 1 tap : le menu « Partager » du téléphone (iCloud Drive, Google Drive, AirDrop, WhatsApp…).
+       * À défaut (ordinateur), téléchargement du fichier. → true si la sauvegarde est partie.
+       */
+      exportData: async () => {
+        const name = `gymlog-${new Date().toISOString().slice(0, 10)}.json`;
+        const file = new File([serializeBackup(current.current)], name, { type: 'application/json' });
+        try {
+          if (navigator.canShare?.({ files: [file] })) {
+            await navigator.share({ files: [file], title: 'Sauvegarde GymLog' });
+          } else {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(file);
+            a.download = name;
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+          }
+          set((s) => ({ ...s, lastExport: Date.now() }));
+          return true;
+        } catch {
+          return false; // partage annulé par l'utilisateur
+        }
+      },
+
+      /** Semaine de décharge du profil actif : jusqu'à `until` (timestamp), ou null pour l'arrêter. */
+      setDeload: (until) => set((s) => ({ ...s, deload: { ...s.deload, [s.profileId]: until } })),
+      /** Les supersets faits en séance sont mémorisés dans la séance type : la prochaine fois, ils sont déjà liés. */
+      rememberSupersets: (templateId, pairs) =>
+        set((s) => ({ ...s, templates: s.templates.map((t) => (t.id === templateId ? { ...t, supersets: pairs } : t)) })),
+      setExerciseGroup: (id, group) => set((s) => ({ ...s, exercises: s.exercises.map((e) => (e.id === id ? { ...e, group, sec: [] } : e)) })),
+
+      /**
+       * Ajoute une séance reçue par lien (déjà validée par decodeTemplate) aux séances du profil actif.
+       * Les exercices inconnus sont créés ; un exercice qui existe déjà sous le même nom est réutilisé.
+       */
+      importSharedTemplate: (data) => {
+        const id = uid();
+        set((s) => {
+          const exercises = [...s.exercises];
+          const map = {};
+          for (const e of data.exercises) {
+            const same = exercises.find((x) => x.id === e.id) ?? exercises.find((x) => norm(x.name) === norm(e.name));
+            if (same) map[e.id] = same.id;
+            else {
+              const nid = exercises.some((x) => x.id === e.id) ? uid() : e.id;
+              exercises.push({ id: nid, name: e.name, group: e.group ?? CUSTOM_GROUP, sec: e.sec, inc: e.inc, rest: e.rest, range: e.range });
+              map[e.id] = nid;
+            }
+          }
+          const tpl = {
+            id,
+            profileId: s.profileId,
+            name: data.name,
+            exerciseIds: [...new Set(data.exercises.map((e) => map[e.id]))],
+            supersets: data.supersets.map(([a, b]) => [map[a], map[b]]),
+          };
+          return { ...s, exercises, templates: [...s.templates, tpl] };
+        });
+        return id;
       },
       /** `data` doit venir de parseBackup (validé + migré). */
       replaceAll: (data) => set(data),

@@ -3,7 +3,7 @@ export const uid = () => Date.now().toString(36) + Math.random().toString(36).sl
 export const slug = (s) =>
   s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
-export const VERSION = 3;
+export const VERSION = 4;
 export const DEFAULT_REST = 120;
 export const CUSTOM_GROUP = 'Mes exercices';
 
@@ -126,6 +126,29 @@ const LIBRARY = {
 export const GROUPS = Object.keys(LIBRARY);
 
 /**
+ * Muscles secondaires (comptés pour ½ série dans le volume hebdomadaire).
+ * Clé = nom de l'exercice. Les exercices d'isolation n'en ont pas.
+ */
+const PUSH = ['Triceps', 'Épaules'];
+const ROW = ['Biceps'];
+const SECONDARY = {
+  'Développé couché': PUSH, 'Développé couché haltères': PUSH, 'Développé incliné barre': PUSH, 'Développé incliné haltères': PUSH,
+  'Développé décliné': PUSH, 'Développé couché Smith': PUSH, 'Développé couché machine': PUSH, 'Développé incliné machine': PUSH,
+  Dips: PUSH, Pompes: PUSH,
+  Tractions: ROW, 'Tractions supination': ROW, 'Tractions prise neutre': ROW, 'Tirage vertical': ROW, 'Tirage vertical prise serrée': ROW,
+  'Tirage horizontal poulie': ROW, 'Rowing barre': ROW, 'Rowing haltère': ROW, 'Rowing T-bar': ROW, 'Rowing machine': ROW, 'Rowing buste appuyé': ROW,
+  'Soulevé de terre': ['Ischios & fessiers', 'Avant-bras'],
+  'Développé militaire': ['Triceps'], 'Développé haltères assis': ['Triceps'], 'Développé épaules machine': ['Triceps'], 'Arnold press': ['Triceps'],
+  'Face pull': ['Dos'], 'Oiseau haltères': ['Dos'], 'Reverse pec deck': ['Dos'], 'Rowing menton': ['Dos'],
+  'Curl marteau': ['Avant-bras'], 'Curl inversé': ['Biceps'],
+  'Développé couché prise serrée': ['Pectoraux', 'Épaules'], 'Dips banc': ['Pectoraux'],
+  Squat: ['Ischios & fessiers'], 'Front squat': ['Ischios & fessiers'], 'Squat Smith': ['Ischios & fessiers'], 'Squat goblet': ['Ischios & fessiers'],
+  'Hack squat': ['Ischios & fessiers'], 'Presse à cuisses': ['Ischios & fessiers'], 'Fentes haltères': ['Ischios & fessiers'],
+  'Fentes marchées': ['Ischios & fessiers'], 'Fentes bulgares': ['Ischios & fessiers'], 'Step-up': ['Ischios & fessiers'],
+  'Soulevé de terre roumain': ['Dos'], 'Soulevé de terre jambes tendues': ['Dos'], 'Soulevé de terre sumo': ['Quadriceps', 'Dos'], 'Good morning': ['Dos'],
+};
+
+/**
  * Fourchette de reps par défaut, déduite du type d'exercice (via son temps de repos) :
  * gros polyarticulaires lourds 5–8, polyarticulaires 6–10, accessoires 8–12, isolation 10–15, abdos 12–20.
  */
@@ -133,7 +156,7 @@ export const defaultRange = (rest) => (rest >= 180 ? [5, 8] : rest >= 150 ? [6, 
 export const RANGES = [[3, 5], [5, 8], [6, 10], [8, 12], [10, 15], [12, 20]];
 
 export const libraryExercises = () =>
-  Object.entries(LIBRARY).flatMap(([group, list]) => list.map(([name, inc, rest]) => ({ id: slug(name), name, group, inc, rest, range: defaultRange(rest) })));
+  Object.entries(LIBRARY).flatMap(([group, list]) => list.map(([name, inc, rest]) => ({ id: slug(name), name, group, sec: SECONDARY[name] ?? [], inc, rest, range: defaultRange(rest) })));
 
 /** Modèles prêts à l'emploi : on les ajoute à ses séances, puis on les modifie comme on veut. */
 export const MODELS = [
@@ -148,7 +171,7 @@ export const MODELS = [
 
 export function templateFromModel(profileId, name) {
   const model = MODELS.find(([n]) => n === name);
-  return { id: uid(), profileId, name, exerciseIds: (model?.[1] ?? []).map(slug) };
+  return { id: uid(), profileId, name, exerciseIds: (model?.[1] ?? []).map(slug), supersets: [] };
 }
 
 const DEFAULT_TEMPLATES = ['Push', 'Pull', 'Legs', 'Upper', 'Lower', 'Full body'];
@@ -173,6 +196,7 @@ export function initialState() {
     plans: { [profile.id]: plan },
     drafts: {}, // séance en cours, par profil : survit au verrouillage / rechargement
     notes: {}, // { [profileId]: { [exerciseId]: "Siège cran 4" } }
+    deload: {}, // { [profileId]: date de fin de la semaine de décharge }
     lastExport: null,
     sessions: [],
   };
@@ -201,6 +225,17 @@ export function migrate(input) {
   if (s.v < 3) {
     // v2 → v3 : fourchette de reps par exercice + notes par profil
     s = { ...s, v: 3, notes: s.notes ?? {}, exercises: s.exercises.map((e) => ({ ...e, range: e.range ?? defaultRange(e.group === CUSTOM_GROUP ? 0 : e.rest) })) };
+  }
+  if (s.v < 4) {
+    // v3 → v4 : muscles secondaires (volume hebdo), supersets mémorisés dans les séances types, décharge
+    const secById = new Map(libraryExercises().map((e) => [e.id, e.sec]));
+    s = {
+      ...s,
+      v: 4,
+      deload: s.deload ?? {},
+      exercises: s.exercises.map((e) => ({ ...e, sec: e.sec ?? secById.get(e.id) ?? [] })),
+      templates: s.templates.map((t) => ({ ...t, supersets: t.supersets ?? [] })),
+    };
   }
   return s;
 }

@@ -1,21 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { RANGES } from '../lib/defaults';
-import { ago, fmtInt, fmtKg, fmtSet, isBodyweight, liveRecords, recordBook, recordOf, summarize, target, tonnage, totalReps, trend, work, workSets } from '../lib/training';
+import { fmtInt, fmtKg, isBodyweight, liveRecords, main, recordBook, recordOf, roundTo, summarize, target, tonnage, totalReps, trend, workSets } from '../lib/training';
+import EntryPad from './exercise/EntryPad';
+import ExtraSets from './exercise/ExtraSets';
+import SetTable from './exercise/SetTable';
 import Sheet from './Sheet';
-import Stepper from './Stepper';
-import { Check } from './Icons';
+import { Check, TabProgress } from './Icons';
 
-const RIRS = [0, 1, 2, 3, 4];
-const TREND = {
-  up: { sign: '▲', cls: 'text-pink' },
-  eq: { sign: '=', cls: 'text-muted' },
-  down: { sign: '▼', cls: 'text-muted' },
-};
-const COLS = 'grid-cols-[1.25rem_1fr_1.25rem_7.5rem]';
 const WARMUP_STEPS = [[0.5, 10], [0.7, 5], [0.85, 3]]; // % de la charge de travail × reps : montée classique
-const rirText = (r) => `RIR ${r >= 4 ? '4+' : r}`;
 const toEntry = (s) => ({ w: s.w, r: s.r, rir: s.rir ?? 2 });
-const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+const modeOf = (s) => (s.wu ? 'wu' : s.t === 'drop' ? 'drop' : 'work');
 
 /** Pastille : 32 px à l'œil, 44 px sous le doigt. */
 const Chip = ({ active, children, ...props }) => (
@@ -26,33 +20,43 @@ const Chip = ({ active, children, ...props }) => (
   </button>
 );
 
+const IconButton = ({ label, onClick, children }) => (
+  <button onClick={onClick} aria-label={label} className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-muted active:bg-fill">
+    {children}
+  </button>
+);
+
 /**
  * Une carte = un exercice. Fermée : une ligne de résumé. Ouverte : tout ce qu'il faut, rien de plus.
  *
- * Le tableau aligne chaque série de travail d'aujourd'hui avec LA MÊME série de la dernière fois.
- * Les échauffements sont notés à part et n'entrent dans aucun calcul (À battre, records, courbes).
- * L'objectif suit une double progression par fourchette : les champs sont pré-remplis, 1 tap suffit.
+ * Trois sortes de séries : principales (comparées, records, objectif), échauffements et drop sets (notés à part).
+ * L'objectif suit une double progression par fourchette, ajustée à la forme du jour et à la décharge.
  */
-export default function ExerciseCard({ exercise, item, prev, history = [], note, stalled, open, onToggle, onMenu, onAdd, onUpdate, onDelete, onRange, onNote }) {
+export default function ExerciseCard({ exercise, item, prev, history = [], note, stalled, form = 'ok', deload = false, superset, open, onToggle, onMenu, onChart, onAdd, onUpdate, onDelete, onRange, onNote }) {
   const sets = item.sets;
   const indexed = sets.map((s, i) => ({ s, i }));
   const warmups = indexed.filter((x) => x.s.wu);
-  const works = indexed.filter((x) => !x.s.wu);
-  const nW = works.length;
-  const prevSets = prev?.sets ?? []; // séries de travail de la dernière fois
+  const drops = indexed.filter((x) => x.s.t === 'drop');
+  const mains = indexed.filter((x) => !x.s.wu && x.s.t !== 'drop');
+  const nM = mains.length;
+  const prevSets = prev?.sets ?? []; // séries principales de la dernière fois
   const range = exercise.range ?? [8, 12];
-  const goal = useMemo(() => target(prevSets, { inc: exercise.inc, range }), [prev, exercise.inc, range[0], range[1]]); // eslint-disable-line react-hooks/exhaustive-deps
+  const goal = useMemo(() => target(prevSets, { inc: exercise.inc, range, form, deload }), [prev, exercise.inc, range[0], range[1], form, deload]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const lastWork = works.at(-1)?.s;
-  const workEntry = (after = lastWork) => (after ? toEntry(after) : goal ? { w: goal.w, r: goal.r, rir: 2 } : { w: 20, r: range[0], rir: 2 });
+  const lastMain = mains.at(-1)?.s;
+  const workEntry = (after = lastMain) => (after ? toEntry(after) : goal ? { w: goal.w, r: goal.r, rir: 2 } : { w: 20, r: range[0], rir: 2 });
   const warmEntry = (count) => {
-    const base = goal?.w ?? lastWork?.w ?? 20;
+    const base = goal?.w ?? lastMain?.w ?? 20;
     const [f, r] = WARMUP_STEPS[Math.min(count, WARMUP_STEPS.length - 1)];
-    return { w: Math.max(0, Math.round((base * f) / exercise.inc) * exercise.inc), r, rir: null };
+    return { w: Math.max(0, roundTo(base * f, exercise.inc)), r, rir: null };
+  };
+  const dropEntry = () => {
+    const ref = (drops.at(-1) ?? mains.at(-1))?.s ?? { w: goal?.w ?? 20, r: range[0] };
+    return { w: Math.max(0, roundTo(ref.w * 0.8, exercise.inc)), r: ref.r, rir: 0 };
   };
 
   const [entry, setEntry] = useState(() => workEntry());
-  const [warm, setWarm] = useState(false); // mode échauffement pour les prochaines séries
+  const [mode, setMode] = useState('work'); // 'work' | 'wu' | 'drop' pour la prochaine série
   const [editing, setEditing] = useState(null); // index réel de la série en correction
   const [flash, setFlash] = useState(null); // ligne qui vient d'être enregistrée (retour visuel)
   const [saved, setSaved] = useState(0); // relance l'animation du bouton
@@ -88,45 +92,50 @@ export default function ExerciseCard({ exercise, item, prev, history = [], note,
     return () => clearTimeout(id);
   }, [flash]);
 
-  const toggleWarm = (on) => {
-    setWarm(on);
+  const switchMode = (m) => {
+    const next = mode === m ? 'work' : m;
+    setMode(next);
     setEditing(null);
-    setEntry(on ? warmEntry(warmups.length) : workEntry());
+    setEntry(next === 'wu' ? warmEntry(warmups.length) : next === 'drop' ? dropEntry() : workEntry());
   };
 
   const submit = () => {
-    const isWu = editing != null ? !!sets[editing].wu : warm;
-    const set = isWu ? { w: entry.w, r: entry.r, rir: null, wu: true } : { w: entry.w, r: entry.r, rir: entry.rir };
+    const m = editing != null ? modeOf(sets[editing]) : mode;
+    const set = m === 'wu' ? { w: entry.w, r: entry.r, rir: null, wu: true } : { w: entry.w, r: entry.r, rir: entry.rir, ...(m === 'drop' ? { t: 'drop' } : {}) };
     if (editing == null) {
       onAdd(set);
       navigator.vibrate?.(12); // Android ; sur iPhone, le retour est visuel (ligne + bouton)
       setFlash(sets.length);
       setSaved((k) => k + 1);
-      if (warm) setEntry(warmEntry(warmups.length + 1)); // échauffement suivant, un cran plus lourd
+      if (m === 'wu') setEntry(warmEntry(warmups.length + 1)); // échauffement suivant, un cran plus lourd
+      if (m === 'drop') {
+        setMode('work'); // un drop set à la fois ; un tap sur « Drop set » pour en enchaîner un autre
+        setEntry(workEntry());
+      }
       return; // en travail, les champs gardent les valeurs : la série suivante est souvent identique
     }
     onUpdate(editing, set);
     setFlash(editing);
     setEditing(null);
-    setWarm(false);
-    setEntry(workEntry(isWu || editing !== works.at(-1)?.i ? lastWork : set));
+    setMode('work');
+    setEntry(workEntry(m !== 'work' || editing !== mains.at(-1)?.i ? lastMain : set));
   };
 
   const edit = (i) => {
     if (editing === i) return cancelEdit();
     setEditing(i);
-    setWarm(!!sets[i].wu);
+    setMode(modeOf(sets[i]));
     setEntry(toEntry(sets[i]));
   };
   const cancelEdit = () => {
     setEditing(null);
-    setWarm(false);
+    setMode('work');
     setEntry(workEntry());
   };
   const remove = () => {
     onDelete(editing);
     setEditing(null);
-    setWarm(false);
+    setMode('work');
   };
   const saveNote = () => {
     if (noteDraft != null) onNote(noteDraft);
@@ -135,59 +144,71 @@ export default function ExerciseCard({ exercise, item, prev, history = [], note,
 
   // Records en direct : chaque série se mesure à tout l'historique + aux séries d'avant aujourd'hui
   const records = useMemo(() => liveRecords(sets, history), [sets, history]);
-  const entryIsRecord = editing == null && !warm && !!recordOf({ ...entry, wu: false }, recordBook([...history, ...work(sets)]));
+  const entryIsRecord = editing == null && mode === 'work' && !!recordOf({ ...entry }, recordBook([...history, ...main(sets)]));
+  const nextRef = prevSets[nM];
+  const rowsWanted = deload ? Math.max(1, prevSets.length - 1) : prevSets.length; // décharge : une série de moins
+  const editMode = editing != null ? modeOf(sets[editing]) : null;
+  const editingLabel = editing == null ? null : editMode === 'wu' ? 'Corriger l’échauffement' : editMode === 'drop' ? 'Corriger le drop set' : `Corriger la série ${mains.findIndex((x) => x.i === editing) + 1}`;
 
-  const rows = Math.max(nW + 1, prevSets.length);
-  const nextRef = prevSets[nW];
-  const editingWu = editing != null && !!sets[editing]?.wu;
-  const wuMode = editing != null ? editingWu : warm;
-
-  // Tonnage effectif (séries de travail RIR ≤ 3) : aujourd'hui vs la dernière fois. Reps au poids du corps.
-  const bw = isBodyweight([...work(sets), ...prevSets]);
+  // Tonnage effectif des séries principales (RIR ≤ 3) : aujourd'hui vs la dernière fois. Reps au poids du corps.
+  const bw = isBodyweight([...main(sets), ...prevSets]);
   const measure = (list) => (bw ? totalReps(workSets(list)) : tonnage(workSets(list)));
-  const done = measure(sets);
+  const done = measure(main(sets));
   const goalTotal = measure(prevSets);
 
   return (
-    <section ref={ref} className="scroll-mt-20 overflow-hidden rounded-3xl bg-card">
-      {/* En-tête : toujours tapable pour ouvrir / fermer ; « ⋯ » pour organiser quand la carte est ouverte */}
+    <section ref={ref} className={`scroll-mt-20 overflow-hidden rounded-3xl bg-card ${superset ? 'ring-1 ring-pink/40' : ''}`}>
+      {/* En-tête : toujours tapable pour ouvrir / fermer ; courbe et « ⋯ » quand la carte est ouverte */}
       <div className="flex items-center">
-      <button onClick={onToggle} aria-expanded={open} className="flex min-h-14 min-w-0 flex-1 items-center gap-3 py-3 pl-3.5 pr-2 text-left">
-        <div className="min-w-0 flex-1">
-          <div className={`truncate tracking-tight ${open ? 'text-[22px] font-bold' : 'text-[17px] font-semibold'}`}>{exercise.name}</div>
-          {!open && (
-            <div className="truncate text-[15px] text-muted">
-              {nW ? summarize(work(sets)) : prev ? <>Dernière fois · {summarize(prevSets)}</> : 'Nouvel exercice'}
-            </div>
+        <button onClick={onToggle} aria-expanded={open} className="flex min-h-14 min-w-0 flex-1 items-center gap-3 py-3 pl-3.5 pr-2 text-left">
+          <div className="min-w-0 flex-1">
+            {superset && <div className="text-[13px] font-semibold text-pink">Superset {superset}</div>}
+            <div className={`truncate tracking-tight ${open ? 'text-[22px] font-bold' : 'text-[17px] font-semibold'}`}>{exercise.name}</div>
+            {!open && (
+              <div className="truncate text-[15px] text-muted">
+                {nM ? summarize(main(sets)) : prev ? <>Dernière fois · {summarize(prevSets)}</> : 'Nouvel exercice'}
+              </div>
+            )}
+          </div>
+          {nM > 0 && !open && (
+            <span className="mr-1.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-pink text-white">
+              <Check className="h-4 w-4" strokeWidth={3} />
+            </span>
           )}
-        </div>
-        {nW > 0 && !open && (
-          <span className="mr-1.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-pink text-white">
-            <Check className="h-4 w-4" strokeWidth={3} />
-          </span>
-        )}
-      </button>
-      {open && (
-        <button onClick={onMenu} aria-label={`Organiser ${exercise.name} : déplacer, remplacer, retirer`} className="mr-2 grid h-11 w-11 shrink-0 place-items-center rounded-full text-muted active:bg-fill">
-          <svg viewBox="0 0 24 24" className="h-6 w-6" fill="currentColor" aria-hidden="true">
-            <circle cx="5" cy="12" r="2" />
-            <circle cx="12" cy="12" r="2" />
-            <circle cx="19" cy="12" r="2" />
-          </svg>
         </button>
-      )}
+        {open && (
+          <div className="mr-1.5 flex">
+            {prev && (
+              <IconButton label={`Voir la progression de ${exercise.name}`} onClick={onChart}>
+                <TabProgress className="h-6 w-6" />
+              </IconButton>
+            )}
+            <IconButton label={`Organiser ${exercise.name} : déplacer, remplacer, superset, retirer`} onClick={onMenu}>
+              <svg viewBox="0 0 24 24" className="h-6 w-6" fill="currentColor" aria-hidden="true">
+                <circle cx="5" cy="12" r="2" />
+                <circle cx="12" cy="12" r="2" />
+                <circle cx="19" cy="12" r="2" />
+              </svg>
+            </IconButton>
+          </div>
+        )}
       </div>
 
       {open && (
         <div className="@container px-3.5 pb-4">
-          {/* Réglages de l'exercice : fourchette, échauffement, note — une seule ligne */}
+          {/* Réglages de l'exercice : fourchette, type de série, note — une seule ligne */}
           <div className="-mt-2 flex flex-wrap gap-x-2">
             <Chip onClick={() => setRangeOpen(true)} aria-label={`Fourchette de reps : ${range[0]} à ${range[1]}`}>
               {range[0]}–{range[1]} reps
             </Chip>
-            <Chip active={warm} aria-pressed={warm} onClick={() => toggleWarm(!warm)}>
+            <Chip active={mode === 'wu'} aria-pressed={mode === 'wu'} onClick={() => switchMode('wu')}>
               Échauffement
             </Chip>
+            {nM > 0 && (
+              <Chip active={mode === 'drop'} aria-pressed={mode === 'drop'} onClick={() => switchMode('drop')}>
+                Drop set
+              </Chip>
+            )}
             {!note && noteDraft == null && <Chip onClick={() => setNoteDraft('')}>+ Note</Chip>}
           </div>
 
@@ -206,7 +227,7 @@ export default function ExerciseCard({ exercise, item, prev, history = [], note,
             />
           ) : (
             note && (
-              <button onClick={() => setNoteDraft(note)} className="mb-1 flex min-h-11 w-full items-center gap-2 rounded-xl px-1 text-left text-[15px] text-white/80 active:bg-fill">
+              <button onClick={() => setNoteDraft(note)} className="mb-1 flex min-h-11 w-full items-center gap-2 rounded-xl px-1 text-left text-[15px] text-white/85 active:bg-fill">
                 <span aria-hidden="true" className="text-muted">✎</span>
                 <span className="min-w-0 flex-1">{note}</span>
               </button>
@@ -214,18 +235,18 @@ export default function ExerciseCard({ exercise, item, prev, history = [], note,
           )}
 
           {/* Stagnation : un conseil discret, avant de commencer l'exercice */}
-          {stalled && nW === 0 && !warm && (
+          {stalled && nM === 0 && mode === 'work' && !deload && (
             <div className="mb-3 rounded-2xl bg-fill px-3.5 py-2.5 text-[13px] leading-snug">
               <span className="font-semibold text-white">Ça stagne depuis 3 séances.</span>{' '}
               <span className="text-muted">Fais une séance allégée (−10 % de charge) ou change de variante pour relancer.</span>
             </div>
           )}
 
-          {/* Objectif du jour, avant la 1re série de travail */}
-          {nW === 0 && goal && !wuMode && (
-            <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl bg-pink/12 px-3.5 py-2.5">
+          {/* Objectif du jour, avant la 1re série principale */}
+          {nM === 0 && goal && mode === 'work' && editing == null && (
+            <div className={`mb-3 flex items-center justify-between gap-3 rounded-2xl px-3.5 py-2.5 ${goal.mode === 'low' || goal.mode === 'deload' ? 'bg-fill' : 'bg-pink/12'}`}>
               <div className="min-w-0">
-                <div className="text-[13px] font-semibold text-pink">Objectif du jour</div>
+                <div className={`text-[13px] font-semibold ${goal.mode === 'low' || goal.mode === 'deload' ? 'text-white' : 'text-pink'}`}>Objectif du jour</div>
                 <div className="text-[13px] leading-snug text-muted">{goal.why}</div>
               </div>
               <div className="shrink-0 font-num text-[20px] font-bold tabular-nums">
@@ -234,75 +255,25 @@ export default function ExerciseCard({ exercise, item, prev, history = [], note,
             </div>
           )}
 
-          {/* Échauffements : notés, mais hors calcul */}
-          {(warmups.length > 0 || warm) && (
-            <div className="mb-1 flex flex-wrap items-center gap-x-1.5 px-1">
-              <span className="mr-1 text-[13px] font-medium text-muted">Échauffement</span>
-              {warmups.map(({ s, i }) => (
-                <button key={i} type="button" onClick={() => edit(i)} className="flex h-11 items-center">
-                  <span
-                    className={`rounded-full px-2.5 py-1 font-num text-[13px] font-semibold tabular-nums ${editing === i ? 'bg-seg text-white' : 'bg-fill text-white/80'} ${flash === i ? 'animate-set-in' : ''}`}
-                  >
-                    {fmtSet(s)}
-                  </span>
-                </button>
-              ))}
-              {!warmups.length && <span className="text-[13px] text-muted">aucun pour l’instant</span>}
+          {(warmups.length > 0 || mode === 'wu') && <ExtraSets label="Échauffement" sets={warmups} editing={editing} flash={flash} onEdit={edit} emptyText="aucun pour l’instant" />}
+
+          <SetTable
+            mainSets={mains}
+            prevSets={prevSets}
+            prevAt={prev?.at}
+            records={records}
+            editing={editing}
+            flash={flash}
+            nextVisible={editing == null && mode === 'work'}
+            rowsWanted={rowsWanted}
+            onEdit={edit}
+          />
+
+          {(drops.length > 0 || mode === 'drop') && (
+            <div className="mt-1">
+              <ExtraSets label="Drop sets" sets={drops} editing={editing} flash={flash} onEdit={edit} emptyText="−20 %, enchaîné sans repos" />
             </div>
           )}
-
-          {/* Aujourd'hui vs dernière fois, série de travail par série de travail */}
-          <div className={`grid ${COLS} gap-2 px-1 pb-1 text-[13px] font-medium text-muted`}>
-            <span />
-            <span>Aujourd'hui</span>
-            <span />
-            <span className="truncate text-right">{prev ? cap(ago(prev.at)) : 'Première fois'}</span>
-          </div>
-          <div>
-            {Array.from({ length: rows }, (_, k) => {
-              const s = works[k]?.s;
-              const real = works[k]?.i;
-              const p = prevSets[k];
-              const isNext = k === nW && editing == null && !warm;
-              const t = TREND[trend(s, p)];
-              return (
-                <button
-                  key={k}
-                  type="button"
-                  disabled={!s}
-                  onClick={() => edit(real)}
-                  className={`grid min-h-11 w-full ${COLS} items-center gap-2 rounded-xl px-1 text-left ${editing === real && s ? 'bg-fill' : s && records[real] ? 'bg-pink/12' : 'sep [--sep-inset:0.25rem]'} ${s && flash === real ? 'animate-set-in' : ''}`}
-                >
-                  <span className="font-num text-[13px] font-medium tabular-nums text-muted">{k + 1}</span>
-                  <span className="truncate">
-                    {s ? (
-                      <>
-                        <span className="font-num text-[17px] font-semibold tabular-nums">{fmtSet(s)}</span>
-                        {s.rir != null && <span className="ml-2 text-[13px] text-muted">{rirText(s.rir)}</span>}
-                      </>
-                    ) : isNext ? (
-                      <span className="text-[15px] font-semibold text-pink">{p ? 'À battre' : nW ? 'Série bonus' : 'Pose ta référence'}</span>
-                    ) : (
-                      <span className="text-muted" aria-hidden="true">–</span>
-                    )}
-                  </span>
-                  <span className={`text-center text-[13px] ${t?.cls ?? ''}`} aria-label={t ? (t.sign === '▲' ? 'en progrès' : t.sign === '▼' ? 'en baisse' : 'égal') : undefined}>{t?.sign}</span>
-                  <span className="flex min-w-0 flex-col items-end leading-tight">
-                    {s && records[real] ? (
-                      <span className="whitespace-nowrap rounded-full bg-pink px-2 py-0.5 text-[13px] font-bold text-white">Nouveau record</span>
-                    ) : (
-                      p && (
-                        <>
-                          <span className={`truncate font-num tabular-nums ${isNext ? 'text-[17px] font-semibold text-white' : 'text-[15px] text-muted'}`}>{fmtSet(p)}</span>
-                          {p.rir != null && <span className={`text-[13px] ${isNext ? 'text-white/80' : 'text-muted'}`}>{rirText(p.rir)}</span>}
-                        </>
-                      )
-                    )}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
 
           {/* Jauge : le tonnage effectif se remplit série après série jusqu'au total de la dernière fois */}
           {goalTotal > 0 && (
@@ -323,71 +294,33 @@ export default function ExerciseCard({ exercise, item, prev, history = [], note,
             </div>
           )}
 
-          {/* Saisie : côte à côte si la carte est assez large, l'un sous l'autre sinon (iPhone SE) */}
-          <div className="mt-3 flex flex-col gap-2 @[20rem]:flex-row">
-            <Stepper label="kg" value={entry.w} step={exercise.inc} decimal onChange={(w) => setEntry((e) => ({ ...e, w }))} className="@[20rem]:flex-[1.2]" />
-            <Stepper label="reps" value={entry.r} step={1} min={1} onChange={(r) => setEntry((e) => ({ ...e, r }))} className="@[20rem]:flex-1" />
-          </div>
-
-          {!wuMode && (
-            <div className="mt-2 flex flex-col gap-1.5 @[20rem]:flex-row @[20rem]:items-center @[20rem]:gap-3">
-              <span className="shrink-0 pl-1 text-[13px] font-medium leading-tight text-muted @[20rem]:w-[4.75rem]">Reps en réserve</span>
-              <div className="grid flex-1 grid-cols-5 gap-0.5 rounded-xl bg-fill p-0.5" role="radiogroup" aria-label="Reps en réserve (RIR)">
-                {RIRS.map((v) => (
-                  <button
-                    key={v}
-                    type="button"
-                    role="radio"
-                    aria-checked={entry.rir === v}
-                    onClick={() => setEntry((e) => ({ ...e, rir: v }))}
-                    className={`h-11 rounded-[10px] font-num text-[15px] font-semibold tabular-nums transition-colors ${entry.rir === v ? 'bg-seg text-white shadow-sm' : 'text-muted active:text-white'}`}
-                  >
-                    {v === 4 ? '4+' : v}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <button
-            key={saved}
-            ref={validateRef}
-            type="button"
-            onClick={submit}
-            className={`mt-3 flex h-14 w-full items-center justify-center gap-2 rounded-full text-[17px] font-semibold text-white transition-transform active:scale-[.97] ${wuMode ? 'bg-fill-hi' : 'bg-pink'} ${saved ? 'animate-pop' : ''}`}
-          >
-            {flash != null && editing == null && <Check className="h-5 w-5" strokeWidth={3} />}
-            {editing != null
-              ? editingWu
-                ? 'Corriger l’échauffement'
-                : `Corriger la série ${works.findIndex((x) => x.i === editing) + 1}`
-              : warm
-                ? 'Valider l’échauffement'
-                : `Valider la série ${nW + 1}`}
-            {entryIsRecord ? (
-              <span className="rounded-full bg-white px-2 py-0.5 text-[13px] font-bold text-pink">★ Record</span>
-            ) : (
-              editing == null && !warm && nextRef && trend(entry, nextRef) === 'up' && <span className="rounded-full bg-white/20 px-2 py-0.5 text-[13px] font-semibold">▲ Progrès</span>
-            )}
-          </button>
-
-          {editing != null && (
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <button type="button" onClick={remove} className="h-12 rounded-full bg-fill text-[17px] font-medium text-pink active:opacity-60">
-                Supprimer
-              </button>
-              <button type="button" onClick={cancelEdit} className="h-12 rounded-full bg-fill text-[17px] font-medium active:opacity-60">
-                Annuler
-              </button>
-            </div>
-          )}
-
+          <EntryPad
+            entry={entry}
+            setEntry={setEntry}
+            inc={exercise.inc}
+            mode={editMode ?? mode}
+            editingLabel={editingLabel}
+            nextIndex={nM + 1}
+            flashing={flash != null && editing == null}
+            saved={saved}
+            validateRef={validateRef}
+            onSubmit={submit}
+            onDelete={remove}
+            onCancel={cancelEdit}
+            badge={
+              entryIsRecord ? (
+                <span className="rounded-full bg-white px-2 py-0.5 text-[13px] font-bold text-pink">★ Record</span>
+              ) : (
+                editing == null && mode === 'work' && nextRef && trend(entry, nextRef) === 'up' && <span className="rounded-full bg-white/20 px-2 py-0.5 text-[13px] font-semibold">▲ Progrès</span>
+              )
+            }
+          />
         </div>
       )}
 
       <Sheet open={rangeOpen} onClose={() => setRangeOpen(false)} title="Fourchette de reps">
         <p className="mb-4 text-[15px] leading-snug text-muted">
-          Monte les reps jusqu’en haut de la fourchette sur toutes tes séries de travail. Une fois atteint, ajoute {fmtKg(exercise.inc)} et repars du bas.
+          Monte les reps jusqu’en haut de la fourchette sur toutes tes séries principales. Une fois atteint, ajoute {fmtKg(exercise.inc)} et repars du bas.
         </p>
         <div className="grid grid-cols-3 gap-2">
           {RANGES.map(([a, b]) => (

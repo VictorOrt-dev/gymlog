@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import { encodeTemplate, templateLink } from '../lib/share';
 import { useStore } from '../lib/store';
+import { useToast } from './Toast';
 import ExercisePicker from './ExercisePicker';
 import Sheet from './Sheet';
 import { Close, Plus, Up } from './Icons';
@@ -7,6 +9,7 @@ import { Close, Plus, Up } from './Icons';
 /** Éditer une séance type : renommer, ajouter, remonter, retirer. Chaque changement est enregistré direct. */
 export default function TemplateEditor({ template, onClose }) {
   const { state, saveTemplate, deleteTemplate } = useStore();
+  const notify = useToast();
   const [picking, setPicking] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   if (!template) return null;
@@ -56,6 +59,26 @@ export default function TemplateEditor({ template, onClose }) {
         <button onClick={onClose} className="mt-6 h-[52px] w-full rounded-full bg-pink text-[17px] font-semibold text-white active:opacity-80">
           Terminé
         </button>
+        {ids.length > 0 && (
+          <button
+            onClick={async () => {
+              const byId = Object.fromEntries(state.exercises.map((e) => [e.id, e]));
+              const url = templateLink(window.location.href, encodeTemplate(template, byId));
+              try {
+                if (navigator.share) await navigator.share({ title: `Séance ${template.name}`, text: `Ma séance « ${template.name} » sur GymLog :`, url });
+                else {
+                  await navigator.clipboard.writeText(url);
+                  notify('Lien copié : envoie-le à ton pote');
+                }
+              } catch {
+                /* partage annulé */
+              }
+            }}
+            className="mt-2 h-12 w-full rounded-full bg-fill text-[17px] font-semibold active:bg-fill-hi"
+          >
+            Envoyer à un pote
+          </button>
+        )}
         <button
           onClick={() => (confirmDelete ? (deleteTemplate(template.id), onClose()) : setConfirmDelete(true))}
           className="mt-1 h-12 w-full text-[17px] text-pink active:opacity-50"

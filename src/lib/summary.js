@@ -1,4 +1,4 @@
-import { bestOf, historySets, liveRecords, pctChange, tonnage, work, workSets, e1rm } from './training';
+import { bestOf, e1rm, historySets, liveRecords, main, pctChange, tonnage, work, workSets } from './training';
 
 /**
  * Récapitulatif de fin de séance (logique pure, testée).
@@ -12,10 +12,10 @@ export function buildSummary(draft, sessions, endedAt = Date.now()) {
   const exercises = draft.items
     .filter((it) => it.sets.length)
     .map((it) => {
-      const today = work(it.sets);
-      const ref = sameType?.items.find((i) => i.exerciseId === it.exerciseId && work(i.sets).length) ?? [...mine].reverse().flatMap((s) => s.items).find((i) => i.exerciseId === it.exerciseId && work(i.sets).length);
-      const prev = ref ? work(ref.sets) : [];
-      const best = today.length ? bestOf(today) : null;
+      const today = work(it.sets); // compteur : drop sets inclus
+      const ref = sameType?.items.find((i) => i.exerciseId === it.exerciseId && main(i.sets).length) ?? [...mine].reverse().flatMap((s) => s.items).find((i) => i.exerciseId === it.exerciseId && main(i.sets).length);
+      const prev = ref ? main(ref.sets) : [];
+      const best = main(it.sets).length ? bestOf(main(it.sets)) : null;
       const prevBest = prev.length ? bestOf(prev) : null;
       const records = liveRecords(it.sets, historySets(mine, it.exerciseId)).filter(Boolean).length;
       return {

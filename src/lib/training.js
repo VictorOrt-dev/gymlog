@@ -10,9 +10,18 @@ export const norm = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCas
 export const repsToFailure = ({ r, rir }) => r + Math.min(4, Math.max(0, rir ?? 0));
 export const e1rm = (s) => (s.w > 0 ? s.w * (1 + Math.min(30, repsToFailure(s)) / 30) : repsToFailure(s));
 
-/** Séries d'échauffement : visibles, mais exclues de « À battre », des records et des courbes. */
+/**
+ * Types de série. Échauffement (wu) : hors de tout calcul. Drop set (t: 'drop') : compte dans le volume,
+ * mais pas dans « À battre », l'objectif, les records ni les courbes (on le fait fatigué, plus léger).
+ */
 export const isWarmup = (s) => !!s.wu;
+export const isDrop = (s) => s.t === 'drop';
+/** Séries de travail (volume, compteurs) : tout sauf l'échauffement. */
 export const work = (sets) => sets.filter((s) => !s.wu);
+/** Séries principales (comparaisons, records, objectifs) : ni échauffement, ni drop set. */
+export const main = (sets) => sets.filter((s) => !s.wu && s.t !== 'drop');
+export const roundTo = (x, inc) => Math.round(x / inc) * inc;
+export const rirText = (r) => (r === 0 ? 'Échec' : `RIR ${r >= 4 ? '4+' : r}`);
 
 /** Dernière perf de chaque exercice pour un profil → { [exerciseId]: { at, sets } } */
 export function lastPerformances(sessions, profileId) {
@@ -21,8 +30,8 @@ export function lastPerformances(sessions, profileId) {
     const s = sessions[i];
     if (s.profileId !== profileId) continue;
     for (const it of s.items) {
-      const sets = work(it.sets);
-      if (!out[it.exerciseId] && sets.length) out[it.exerciseId] = { at: s.startedAt, sets }; // séries de travail uniquement
+      const sets = main(it.sets);
+      if (!out[it.exerciseId] && sets.length) out[it.exerciseId] = { at: s.startedAt, sets }; // séries principales uniquement
     }
   }
   return out;
@@ -37,19 +46,25 @@ export function trend(set, ref) {
 
 /**
  * Objectif du jour — double progression par fourchette (ex. 8–12) :
- *  - toutes les séries de travail ont atteint le haut de la fourchette → on charge et on repart du bas ;
+ *  - toutes les séries principales ont atteint le haut de la fourchette → on charge et on repart du bas ;
  *  - sinon → même charge, +1 rep (sans dépasser le haut) ;
  *  - sous le bas de la fourchette → même charge, on vise le bas.
+ * Autorégulation : `form` = 'low' (jour sans : −5 %, entretien) | 'high' (en forme : on charge un cran plus tôt).
+ * Décharge : −10 % à reps égales.
  */
-export function target(prevSets, { inc = 2.5, range = [8, 12] } = {}) {
-  const sets = work(prevSets ?? []);
+export function target(prevSets, { inc = 2.5, range = [8, 12], form = 'ok', deload = false } = {}) {
+  const sets = main(prevSets ?? []);
   if (!sets.length) return null;
   const [lo, hi] = range;
   const top = sets[0];
+  if (deload) return { w: top.w > 0 ? roundTo(top.w * 0.9, inc) : 0, r: top.r, why: 'Semaine de décharge : −10 %, une série de moins', mode: 'deload' };
+  if (form === 'low') return { w: top.w > 0 ? roundTo(top.w * 0.95, inc) : 0, r: top.r, why: 'Jour sans : −5 %, on entretient sans se cramer', mode: 'low' };
+  const charge = () => ({ w: round(top.w + inc), r: lo });
   if (sets.every((s) => s.r >= hi)) {
-    if (top.w > 0) return { w: round(top.w + inc), r: lo, why: `Haut de fourchette (${hi}) atteint : on charge, on repart à ${lo}` };
+    if (top.w > 0) return { ...charge(), why: `Haut de fourchette (${hi}) atteint : on charge, on repart à ${lo}` };
     return { w: 0, r: hi, why: `${hi} reps partout : ajoute du lest ou passe à une variante plus dure` };
   }
+  if (form === 'high' && top.w > 0 && sets.every((s) => s.r >= hi - 1)) return { ...charge(), why: `En forme : on charge un cran plus tôt, repars à ${lo}`, mode: 'high' };
   if (top.r < lo) return { w: top.w, r: lo, why: `Vise le bas de ta fourchette (${lo}–${hi}) à cette charge` };
   const r = Math.min(hi, top.r + 1);
   return { w: top.w, r, why: r === hi ? `Dernière marche : ${hi} reps, puis on charge` : `+1 rep, objectif ${hi} reps avant de charger` };
@@ -122,7 +137,7 @@ export function seriesFor(sessions, exerciseId, metric = 'best') {
   const pts = [];
   for (const s of sessions) {
     const it = s.items.find((i) => i.exerciseId === exerciseId);
-    const sets = it ? work(it.sets) : [];
+    const sets = it ? main(it.sets) : [];
     if (sets.length) pts.push({ at: s.startedAt, sets, session: s });
   }
   const bw = isBodyweight(pts.flatMap((p) => p.sets));
@@ -153,11 +168,11 @@ export const pctChange = (cur, prev) => (prev > 0 ? Math.round(((cur - prev) / p
 export function recordBook(sets) {
   let best = 0;
   const byReps = {};
-  for (const s of work(sets)) {
+  for (const s of main(sets)) {
     best = Math.max(best, e1rm(s));
     for (let r = 1; r <= s.r; r++) byReps[r] = Math.max(byReps[r] ?? 0, s.w);
   }
-  return { best, byReps, empty: work(sets).length === 0 };
+  return { best, byReps, empty: main(sets).length === 0 };
 }
 
 /**
@@ -165,14 +180,14 @@ export function recordBook(sets) {
  * Renvoie null, ou { e1rm: bool, reps: bool } (record de force, record à ce nombre de reps).
  */
 export function recordOf(set, book) {
-  if (!set || set.wu || book.empty) return null;
+  if (!set || set.wu || set.t === 'drop' || book.empty) return null;
   const strength = e1rm(set) > book.best + 0.05;
   const reps = set.w > 0 && set.w > (book.byReps[set.r] ?? 0) + 0.001;
   return strength || reps ? { e1rm: strength, reps } : null;
 }
 
 /** Toutes les séries de travail passées d'un exercice (pour construire le carnet de records). */
-export const historySets = (sessions, exerciseId) => sessions.flatMap((s) => s.items.filter((i) => i.exerciseId === exerciseId).flatMap((i) => work(i.sets)));
+export const historySets = (sessions, exerciseId) => sessions.flatMap((s) => s.items.filter((i) => i.exerciseId === exerciseId).flatMap((i) => main(i.sets).map((x) => ({ ...x, at: x.at ?? s.startedAt }))));
 
 /** Records d'une liste de séries du jour, dans l'ordre : chaque série se mesure à l'historique + aux séries d'avant. */
 export function liveRecords(todaySets, history) {
@@ -180,7 +195,7 @@ export function liveRecords(todaySets, history) {
   const seen = [...history];
   for (const s of todaySets) {
     out.push(recordOf(s, recordBook(seen)));
-    if (!s.wu) seen.push(s);
+    if (!s.wu && s.t !== 'drop') seen.push(s);
   }
   return out;
 }
