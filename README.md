@@ -6,15 +6,18 @@ Le carnet de muscu qui ne te ralentit pas. Pensé pour la salle : mains pleines 
 
 **Un seul écran, pas d'onglets.** De haut en bas, par ordre d'usage :
 
-1. **La séance du jour** en un bouton (« Commencer Pull »), ou « Reprendre » si une séance est en cours.
-2. **Ta semaine** : séances faites, prévues, jours de repos. « Modifier » pour changer le planning.
+1. **La séance du jour** en un bouton (« Commencer Pull »), ou « Reprendre » si une séance est en cours. Un jour de repos, la carte montre **la prochaine séance** (« Pull · Mercredi ») avec « La faire maintenant ».
+2. **Ta semaine** : séances faites, prévues, jours de repos ; touche un jour pour changer sa séance. Une pastille **🔥 N semaines** quand tu enchaînes les semaines au rendez-vous (jamais de « 0 » culpabilisant).
 3. **Ta progression** : une carte par exercice avec sa **force** (1RM estimé de ta meilleure série) et sa mini-courbe. **Touche une carte** pour la vue dédiée : courbe semaine après semaine (glisse le doigt pour lire chaque séance), bascule vers le **tonnage effectif**, records, et chaque séance consultable.
-4. **Tes séances** (Push, Pull, Legs, Upper, Lower, Full body…) : ▶ pour démarrer, toucher pour modifier, **glisser vers la gauche pour supprimer** (avec « Annuler »). « Créer une séance » : vide ou depuis un modèle.
+4. **Tes séances** (Push, Pull, Legs, Upper, Lower, Full body…) : ▶ pour démarrer, toucher pour modifier, **glisser vers la gauche pour supprimer** (avec « Annuler »). « Nouvelle séance » : **séance libre tout de suite** (en tête), ou une séance réutilisable, vide ou depuis un modèle.
 
 Pendant la séance, tout est sur la carte de l'exercice :
 
 - **La semaine dernière, côte à côte** : chaque série de travail en face de la même série de la dernière fois (poids × reps · RIR). La ligne « À battre » montre exactement quoi dépasser.
 - **Double progression par fourchette** (ex. 8–12, réglable en un tap) : on monte les reps jusqu'en haut de la fourchette sur toutes les séries, puis on charge et on repart du bas. L'objectif du jour est pré-rempli.
+- **Objectif série par série** : après chaque série, l'objectif de la suivante s'ajuste. Série ratée (2 reps de moins, ou échec sous l'objectif) → −5 % de charge, mêmes reps ; échec pile à l'objectif → une rep de moins ; trop facile (RIR ≥ 3) → +1 rep ou un cran de plus. Une ligne explique pourquoi, et les champs sont déjà pré-remplis.
+- **Progression de la séance** dans l'en-tête : « 4/9 séries » et un trait rose (prévu = séries de la dernière fois, 3 pour un exercice nouveau).
+- **Glisser une série vers la gauche** pour la supprimer, avec « Annuler » (le même geste que pour les séances types).
 - **Forme du jour** : « Fatigué / Normal / En forme », toujours visible en haut de la séance et modifiable à tout moment. Jour sans → objectifs à −5 % ; en forme → on charge un cran plus tôt.
 - **Échauffements** : un tap sur « Échauffement », la montée est proposée (50 % × 10, 70 % × 5, 85 % × 3). Ils sont notés mais exclus de « À battre », des records et des courbes. 60 s de repos seulement.
 - **Drop sets** : un tap sur « Drop set » après une série (−20 % pré-rempli). Comptés dans le volume, exclus des comparaisons et des records. Un RIR 0 s'affiche « Échec ».
@@ -28,7 +31,7 @@ Pendant la séance, tout est sur la carte de l'exercice :
 
 **À la fin, un récapitulatif** : durée, séries de travail, records battus, tonnage effectif, et chaque exercice comparé à ta dernière séance du même type. « Partager le récap » en fait une image à envoyer aux potes.
 
-**Onglet Progrès**, dans l'ordre : force par exercice, **volume par muscle** sur la semaine (½ série pour les muscles secondaires, repère 10–20 séries), puis régularité (semaines d'affilée au rendez-vous) et proposition de **semaine de décharge** quand plusieurs exercices stagnent (−10 %, une série de moins), puis les dernières séances. Dans la vue d'un exercice : **records par reps**.
+**Onglet Progrès**, dans l'ordre : force par exercice, **volume par muscle** sur la semaine (½ série pour les muscles secondaires, repère 10–20 séries), puis **régularité** (calendrier des 12 dernières semaines, un carré rose par jour d'entraînement, et semaines d'affilée au rendez-vous) et proposition de **semaine de décharge** quand plusieurs exercices stagnent (−10 %, une série de moins), puis les dernières séances, et enfin ton **niveau de force** (Novice, Intermédiaire, Avancé, Élite) sur squat, développé couché, soulevé de terre et développé militaire : meilleur 1RM estimé ÷ poids de corps, avec la charge à viser pour le palier suivant. Poids de corps et repères hommes/femmes se règlent derrière l'avatar ; ce sont des ordres de grandeur, pas une note. Dans la vue d'un exercice : **records par reps**.
 
 **Sauvegarde en 1 tap** : le menu « Partager » du téléphone (iCloud Drive, Google Drive, AirDrop…), avec un rappel sur l'accueil quand des séances ne sont pas à l'abri. **Envoyer une séance type à un pote** : un lien, sans serveur ; il l'ajoute en un tap.
 
@@ -119,5 +122,7 @@ Elle est dans `src/lib/training.js`, fonction `target()`. Double progression par
 | Sous le bas de la fourchette (< 8)      | même charge, viser 8                 |
 
 Fourchettes par défaut : 5–8 sur les gros polyarticulaires, 6–10 sur les polyarticulaires, 8–12 en accessoire, 10–15 en isolation, 12–20 pour les abdos.
+
+**Pendant la séance**, `setTargets()` ajuste l'objectif de chaque série suivante d'après la précédente (série ratée → −5 % arrondi au cran ; échec à l'objectif → −1 rep ; trop facile → +1 rep ou +1 cran).
 
 Les flèches ▲ = ▼ comparent avec le 1RM estimé sur reps + RIR. Ainsi, 82,5 × 6 et 80 × 8 se jugent sur la même échelle.

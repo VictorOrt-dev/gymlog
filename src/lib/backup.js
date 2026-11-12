@@ -49,7 +49,11 @@ export function validate(data) {
   check((data.v ?? 1) <= VERSION, 'Sauvegarde créée par une version plus récente de GymLog : mets l’app à jour d’abord.');
 
   check(Array.isArray(data.profiles) && data.profiles.length > 0, 'Aucun profil dans la sauvegarde.');
-  data.profiles.forEach((p, i) => check(isObj(p) && isStr(p.id) && typeof p.name === 'string', `Profil n° ${i + 1} invalide`));
+  data.profiles.forEach((p, i) => {
+    check(isObj(p) && isStr(p.id) && typeof p.name === 'string', `Profil n° ${i + 1} invalide`);
+    check(p.bw == null || isNum(p.bw, 25, 350), `Profil « ${p.name} » : poids de corps invalide`);
+    check(p.sex == null || p.sex === 'h' || p.sex === 'f', `Profil « ${p.name} » : sexe invalide`);
+  });
   const profileIds = new Set(data.profiles.map((p) => p.id));
   check(profileIds.size === data.profiles.length, 'Deux profils ont le même identifiant.');
   check(profileIds.has(data.profileId), 'Profil actif introuvable.');

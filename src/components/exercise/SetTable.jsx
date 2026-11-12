@@ -1,4 +1,5 @@
 import { ago, fmtSet, rirText, trend } from '../../lib/training';
+import SwipeRow from '../SwipeRow';
 
 const TREND = {
   up: { sign: '▲', cls: 'text-pink', label: 'en progrès' },
@@ -12,7 +13,7 @@ const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
  * Aujourd'hui vs la dernière fois, série principale par série principale.
  * La ligne « À battre » montre le chiffre exact à dépasser ; un record illumine sa ligne.
  */
-export default function SetTable({ mainSets, prevSets, prevAt, records, editing, flash, nextVisible, rowsWanted, onEdit }) {
+export default function SetTable({ mainSets, prevSets, prevAt, records, editing, flash, nextVisible, rowsWanted, onEdit, onDelete }) {
   const n = mainSets.length;
   const rows = Math.max(n + 1, rowsWanted);
   return (
@@ -31,7 +32,7 @@ export default function SetTable({ mainSets, prevSets, prevAt, records, editing,
           const isNext = k === n && nextVisible;
           const t = TREND[trend(s, p)];
           const rec = s && records[real];
-          return (
+          const row = (
             <button
               key={k}
               type="button"
@@ -68,6 +69,14 @@ export default function SetTable({ mainSets, prevSets, prevAt, records, editing,
                 )}
               </span>
             </button>
+          );
+          // Une série faite se supprime d'un glissement vers la gauche (annulable) ; clé liée au nombre de séries : remontage propre
+          return s && onDelete ? (
+            <SwipeRow key={`${real}-${n}`} onDelete={() => onDelete(real)}>
+              {row}
+            </SwipeRow>
+          ) : (
+            row
           );
         })}
       </div>

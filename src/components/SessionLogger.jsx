@@ -3,6 +3,7 @@ import { DEFAULT_REST, RANGES } from '../lib/defaults';
 import { useNow, useRestTimer, useWakeLock } from '../lib/hooks';
 import { linkSuperset, moveItem, removeItem, replaceItem, supersetOf, supersetPairs, unlinkSuperset } from '../lib/session';
 import { useStore } from '../lib/store';
+import { sessionProgress } from '../lib/stats';
 import { buildSummary } from '../lib/summary';
 import { historySets, isStalling, lastPerformances, mmss, seriesFor, work } from '../lib/training';
 import ExerciseCard from './ExerciseCard';
@@ -10,6 +11,7 @@ import ExercisePicker from './ExercisePicker';
 import ProgressDetail from './ProgressDetail';
 import RestTimer from './RestTimer';
 import Sheet from './Sheet';
+import { useToast } from './Toast';
 import { Back, Plus, Up } from './Icons';
 
 /** Isolé pour que seul ce texte se redessine chaque seconde, pas toute la séance. */
@@ -52,6 +54,7 @@ export default function SessionLogger({ onExit, onFinished }) {
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [chartOf, setChartOf] = useState(null); // courbe d'un exercice, ouverte sans quitter la séance
   const timer = useRestTimer();
+  const notify = useToast();
   useWakeLock(true);
 
   // L'exercice ouvert est écrit dans la séance dès l'arrivée : en binôme, chacun retrouve exactement sa place.
@@ -69,7 +72,8 @@ export default function SessionLogger({ onExit, onFinished }) {
   if (!draft) return null;
 
   const openEx = byId[items[open]?.exerciseId];
-  const total = items.reduce((n, it) => n + work(it.sets).length, 0); // séries de travail (échauffements exclus)
+  const deloadOn = (state.deload?.[pid] ?? 0) > Date.now();
+  const progress = sessionProgress(items, last, deloadOn); // séries principales validées / prévues
   const any = items.some((it) => it.sets.length);
   const restFor = (ex) => ex?.rest ?? DEFAULT_REST;
   const nameOf = (id) => byId[id]?.name ?? 'Exercice supprimé';
@@ -80,7 +84,7 @@ export default function SessionLogger({ onExit, onFinished }) {
     setDraft((d) => ({ ...d, open: i }));
   };
   const form = draft.form ?? 'ok';
-  const deloadActive = (state.deload?.[pid] ?? 0) > Date.now();
+  const deloadActive = deloadOn;
   const FORMS = [
     ['low', 'Fatigué'],
     ['ok', 'Normal'],
@@ -158,7 +162,7 @@ export default function SessionLogger({ onExit, onFinished }) {
           <div className="min-w-0 max-w-[42vw] text-center leading-tight">
             <div className="truncate text-[17px] font-semibold">{draft.name}</div>
             <div className="font-num text-[13px] tabular-nums text-muted">
-              <Elapsed since={draft.startedAt} /> · {total} série{total > 1 ? 's' : ''}
+              <Elapsed since={draft.startedAt} /> · {progress.done}/{progress.planned} séries
             </div>
           </div>
           <button
@@ -168,6 +172,22 @@ export default function SessionLogger({ onExit, onFinished }) {
             {confirming ? (any ? 'Confirmer' : 'Abandonner') : 'Terminer'}
           </button>
         </div>
+
+        {/* Progression de la séance : un trait fin sous le titre, rien de plus */}
+        <div
+          className="mx-auto h-[3px] max-w-md px-3"
+          role="progressbar"
+          aria-label="Séries validées"
+          aria-valuemin={0}
+          aria-valuemax={progress.planned}
+          aria-valuenow={progress.done}
+          aria-valuetext={`${progress.done} séries validées sur ${progress.planned}`}
+        >
+          <div className="h-full overflow-hidden rounded-full bg-fill">
+            <div className="h-full rounded-full bg-pink transition-[width] duration-300 ease-out" style={{ width: `${progress.planned ? Math.min(100, (progress.done / progress.planned) * 100) : 0}%` }} />
+          </div>
+        </div>
+        <div className="h-2" aria-hidden="true" />
 
         {/* Forme du jour : dans l'en-tête, toujours visible et modifiable ; les objectifs s'adaptent (autorégulation) */}
         <div className="mx-auto flex max-w-md items-center gap-2 px-3 pb-2" role="radiogroup" aria-label="Forme du jour">
@@ -213,7 +233,11 @@ export default function SessionLogger({ onExit, onFinished }) {
               afterSet(i, set);
             }}
             onUpdate={(k, set) => patchSets(i, (s) => s.map((x, j) => (j === k ? { ...x, ...set } : x)))}
-            onDelete={(k) => patchSets(i, (s) => s.filter((_, j) => j !== k))}
+            onDelete={(k) => {
+              const removed = it.sets[k];
+              patchSets(i, (s) => s.filter((_, j) => j !== k));
+              notify('Série supprimée', () => patchSets(i, (s) => [...s.slice(0, k), removed, ...s.slice(k)]));
+            }}
           />
         ))}
 

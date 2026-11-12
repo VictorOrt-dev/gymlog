@@ -97,3 +97,84 @@ export function stallingExercises(sessions, isStallingFor, sinceDays = 21, now =
   const recent = new Set(sessions.filter((s) => s.startedAt >= now - sinceDays * 864e5).flatMap((s) => s.items.map((i) => i.exerciseId)));
   return [...recent].filter((id) => isStallingFor(id));
 }
+
+// ── Progression de la séance en cours ───────────────────────────────────────
+
+/** Séries prévues vs faites : prévu = séries principales de la dernière fois (−1 en décharge), 3 pour un exercice nouveau. */
+export function sessionProgress(items, lastByExercise, deload = false) {
+  let planned = 0;
+  let done = 0;
+  for (const it of items) {
+    const d = main(it.sets).length;
+    const prev = lastByExercise[it.exerciseId]?.sets.length;
+    const p = prev ? (deload ? Math.max(1, prev - 1) : prev) : 3;
+    planned += Math.max(p, d);
+    done += d;
+  }
+  return { done, planned };
+}
+
+// ── Accueil : prochaine séance planifiée ─────────────────────────────────────
+
+const DAY_NAMES = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
+
+/** La prochaine séance du planning après aujourd'hui (en bouclant sur la semaine) → { templateId, day, label } ou null. */
+export function nextPlanned(plan, validIds, todayIdx) {
+  for (let k = 1; k <= 7; k++) {
+    const day = (todayIdx + k) % 7;
+    if (plan[day] && validIds.has(plan[day])) return { templateId: plan[day], day, label: k === 1 ? 'demain' : DAY_NAMES[day] };
+  }
+  return null;
+}
+
+// ── Calendrier de régularité (12 semaines) ───────────────────────────────────
+
+/** Grille lundi → dimanche sur `weeks` semaines, la dernière colonne = semaine en cours. */
+export function calendarGrid(sessions, weeks = 12, now = Date.now()) {
+  const trained = new Set(sessions.map((s) => new Date(s.startedAt).toDateString()));
+  const today = new Date(new Date(now).setHours(0, 0, 0, 0)).getTime();
+  const start = mondayOf(now) - (weeks - 1) * WEEK_MS;
+  const cols = [];
+  let count = 0;
+  for (let w = 0; w < weeks; w++) {
+    const col = [];
+    for (let d = 0; d < 7; d++) {
+      const ts = addDays(start, w * 7 + d);
+      const on = trained.has(new Date(ts).toDateString());
+      if (on) count += 1;
+      col.push({ ts, on, future: ts > today, today: ts === today });
+    }
+    cols.push(col);
+  }
+  return { cols, count };
+}
+
+// ── Statut de force (repères indicatifs, 1RM estimé / poids de corps) ────────
+
+export const LEVELS = ['Novice', 'Intermédiaire', 'Avancé', 'Élite'];
+
+/**
+ * Seuils (multiples du poids de corps) pour passer Intermédiaire / Avancé / Élite, sur les mouvements de référence.
+ * Repères indicatifs inspirés des standards de force courants ; en dessous du premier seuil : Novice.
+ */
+export const STANDARDS = {
+  h: { squat: [1.25, 1.75, 2.5], 'developpe-couche': [1, 1.5, 2], 'souleve-de-terre': [1.5, 2.25, 3], 'developpe-militaire': [0.6, 0.85, 1.15] },
+  f: { squat: [0.85, 1.25, 1.75], 'developpe-couche': [0.6, 0.9, 1.25], 'souleve-de-terre': [1.1, 1.6, 2.25], 'developpe-militaire': [0.4, 0.6, 0.8] },
+};
+
+/** Niveau pour un 1RM estimé : { level, index, ratio, next: { level, kg } | null, progress (0–1 vers le palier suivant) }. */
+export function strengthLevel(e1rmKg, bodyweight, exerciseId, sex = 'h') {
+  const th = STANDARDS[sex]?.[exerciseId];
+  if (!th || !(bodyweight > 0) || !(e1rmKg > 0)) return null;
+  const ratio = e1rmKg / bodyweight;
+  const index = th.filter((x) => ratio >= x).length; // 0 = Novice … 3 = Élite
+  const lowRatio = index === 0 ? 0 : th[index - 1];
+  const highRatio = th[index];
+  return {
+    level: LEVELS[index],
+    index,
+    ratio,
+    next: highRatio ? { level: LEVELS[index + 1], kg: Math.ceil(highRatio * bodyweight * 2) / 2 } : null,
+    progress: highRatio ? Math.min(1, (ratio - lowRatio) / (highRatio - lowRatio)) : 1,
+  };
+}

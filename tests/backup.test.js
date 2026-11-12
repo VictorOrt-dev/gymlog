@@ -15,6 +15,13 @@ describe('Sauvegardes', () => {
     expect(res.ok).toBe(true);
     expect(res.data).toEqual(s);
   });
+  it('garde le poids de corps et le sexe, refuse des valeurs absurdes', () => {
+    const s = withSession();
+    s.profiles[0] = { ...s.profiles[0], bw: 80, sex: 'f' };
+    expect(parseBackup(serializeBackup(s)).data.profiles[0]).toMatchObject({ bw: 80, sex: 'f' });
+    expect(parseBackup(JSON.stringify({ ...s, profiles: [{ ...s.profiles[0], bw: 5000 }] })).error).toMatch(/poids de corps/);
+    expect(parseBackup(JSON.stringify({ ...s, profiles: [{ ...s.profiles[0], sex: 'x' }] })).error).toMatch(/sexe/);
+  });
   it('l’export est signé', () => {
     expect(JSON.parse(serializeBackup(initialState()))).toMatchObject({ app: 'gymlog' });
   });

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { fmtKg, liveRecords, main, recordBook, recordOf, roundTo, summarize, target, trend } from '../lib/training';
+import { fmtKg, liveRecords, main, recordBook, recordOf, roundTo, setTargets, summarize, target, trend } from '../lib/training';
 import EntryPad from './exercise/EntryPad';
 import ExtraSets from './exercise/ExtraSets';
 import SetTable from './exercise/SetTable';
@@ -42,7 +42,16 @@ export default function ExerciseCard({ exercise, item, prev, history = [], note,
   const goal = useMemo(() => target(prevSets, { inc: exercise.inc, range, form, deload }), [prev, exercise.inc, range[0], range[1], form, deload]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const lastMain = mains.at(-1)?.s;
-  const workEntry = (after = lastMain) => (after ? toEntry(after) : goal ? { w: goal.w, r: goal.r, rir: 2 } : { w: 20, r: range[0], rir: 2 });
+  const tOpts = { inc: exercise.inc, range };
+  // Objectif série par série : recalculé après chaque série (ratée → on allège, trop facile → on pousse)
+  const targets = useMemo(() => setTargets(goal, main(sets), tOpts), [goal, sets, exercise.inc]); // eslint-disable-line react-hooks/exhaustive-deps
+  const nextTarget = targets[nM];
+  /** Valeurs proposées pour la prochaine série principale : l'objectif ajusté, le RIR de la dernière série. */
+  const workEntry = (list = main(sets)) => {
+    const t = setTargets(goal, list, tOpts)[list.length];
+    const rir = list.at(-1)?.rir ?? 2;
+    return t ? { w: t.w, r: t.r, rir } : { w: 20, r: range[0], rir: 2 };
+  };
   const warmEntry = (count) => {
     const base = goal?.w ?? lastMain?.w ?? 20;
     const [f, r] = WARMUP_STEPS[Math.min(count, WARMUP_STEPS.length - 1)];
@@ -108,13 +117,14 @@ export default function ExerciseCard({ exercise, item, prev, history = [], note,
         setMode('work'); // un drop set à la fois ; un tap sur « Drop set » pour en enchaîner un autre
         setEntry(workEntry());
       }
-      return; // en travail, les champs gardent les valeurs : la série suivante est souvent identique
+      if (m === 'work') setEntry(workEntry([...main(sets), set])); // la série suivante : même chose, ou l'objectif ajusté
+      return;
     }
     onUpdate(editing, set);
     setFlash(editing);
     setEditing(null);
     setMode('work');
-    setEntry(workEntry(m !== 'work' || editing !== mains.at(-1)?.i ? lastMain : set));
+    setEntry(workEntry(main(sets.map((x, j) => (j === editing ? set : x)))));
   };
 
   const edit = (i) => {
@@ -128,10 +138,11 @@ export default function ExerciseCard({ exercise, item, prev, history = [], note,
     setMode('work');
     setEntry(workEntry());
   };
-  const remove = () => {
-    onDelete(editing);
+  const remove = (i = editing) => {
+    onDelete(i);
     setEditing(null);
     setMode('work');
+    setEntry(workEntry(main(sets.filter((_, j) => j !== i))));
   };
 
   // Records en direct : chaque série se mesure à tout l'historique + aux séries d'avant aujourd'hui
@@ -234,7 +245,18 @@ export default function ExerciseCard({ exercise, item, prev, history = [], note,
             nextVisible={editing == null && mode === 'work'}
             rowsWanted={rowsWanted}
             onEdit={edit}
+            onDelete={remove}
           />
+
+          {/* Coach en direct : l'objectif de la prochaine série s'adapte à la précédente */}
+          {nM > 0 && nextTarget?.why && editing == null && mode === 'work' && (
+            <p className="mt-2 flex items-baseline justify-between gap-3 rounded-xl bg-fill px-3 py-2 text-[13px] leading-snug" role="status">
+              <span className="min-w-0 text-white/85">{nextTarget.why}</span>
+              <span className="shrink-0 font-num text-[15px] font-semibold tabular-nums">
+                {fmtKg(nextTarget.w)} × {nextTarget.r}
+              </span>
+            </p>
+          )}
 
           {(drops.length > 0 || mode === 'drop') && (
             <div className="mt-1">
@@ -253,7 +275,7 @@ export default function ExerciseCard({ exercise, item, prev, history = [], note,
             saved={saved}
             validateRef={validateRef}
             onSubmit={submit}
-            onDelete={remove}
+            onDelete={() => remove()}
             onCancel={cancelEdit}
             badge={
               entryIsRecord ? (

@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
 import { CUSTOM_GROUP, GROUPS } from '../lib/defaults';
-import { VOLUME_ZONE, mondayOf, muscleOrder, stallingExercises, volumeStatus, weekStreak, weeklyVolume } from '../lib/stats';
+import { LEVELS, VOLUME_ZONE, calendarGrid, mondayOf, muscleOrder, stallingExercises, strengthLevel, volumeStatus, weekStreak, weeklyVolume } from '../lib/stats';
 import { useStore } from '../lib/store';
-import { ago, isStalling, seriesFor } from '../lib/training';
+import { ago, fmtW, isStalling, seriesFor } from '../lib/training';
 import { Segmented } from './Charts';
 import ProgressDetail from './ProgressDetail';
 import ProgressSection from './ProgressSection';
 import SessionDetail, { sessionStats } from './SessionDetail';
+import SettingsSheet from './SettingsSheet';
 import Sheet from './Sheet';
 import { useToast } from './Toast';
 import { ChevronRight } from './Icons';
@@ -37,6 +38,113 @@ function VolumeRow({ group, value }) {
   );
 }
 
+const MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+
+/** 12 semaines, un carré par jour (lundi en haut) : la régularité se lit d'un regard. CSS pur, aucune librairie. */
+function Calendar({ sessions }) {
+  const { cols, count } = useMemo(() => calendarGrid(sessions, 12), [sessions]);
+  const first = new Date(cols[0][0].ts);
+  return (
+    <section className="mt-9">
+      <div className="mb-2 flex items-baseline justify-between px-1">
+        <h2 className="text-[20px] font-bold tracking-tight">Régularité</h2>
+        <span className="text-[13px] text-muted">12 semaines</span>
+      </div>
+      <div className="rounded-2xl bg-card p-4">
+        <div
+          role="img"
+          aria-label={`${count} jour${count > 1 ? 's' : ''} d’entraînement sur les 12 dernières semaines`}
+          className="grid grid-flow-col grid-cols-12 grid-rows-7 gap-[3px]"
+        >
+          {cols.flat().map((d) => (
+            <span
+              key={d.ts}
+              className={`aspect-square rounded-[4px] ${d.on ? 'bg-pink' : d.future ? 'bg-transparent' : 'bg-fill'} ${d.today ? 'ring-1 ring-pink ring-offset-1 ring-offset-card' : ''}`}
+            />
+          ))}
+        </div>
+        <div className="mt-2.5 flex items-baseline justify-between text-[13px] text-muted">
+          <span>
+            Depuis le {first.getDate()} {MONTHS[first.getMonth()]}
+          </span>
+          <span>
+            <span className="font-num font-semibold text-white">{count}</span> jour{count > 1 ? 's' : ''} d’entraînement
+          </span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+const REF_LIFTS = [
+  ['squat', 'Squat'],
+  ['developpe-couche', 'Développé couché'],
+  ['souleve-de-terre', 'Soulevé de terre'],
+  ['developpe-militaire', 'Développé militaire'],
+];
+
+/** Statut de force : meilleur 1RM estimé ÷ poids de corps sur les mouvements de référence. Indicatif, jamais un jugement. */
+function Strength({ sessions, profile, onSetup }) {
+  const sex = profile.sex ?? 'h';
+  const rows = useMemo(
+    () =>
+      REF_LIFTS.flatMap(([id, name]) => {
+        const { points, bw } = seriesFor(sessions, id);
+        if (!points.length || bw) return [];
+        const best = Math.max(...points.map((p) => p.value));
+        const lvl = strengthLevel(best, profile.bw, id, sex);
+        return lvl ? [{ id, name, best, lvl }] : [];
+      }),
+    [sessions, profile.bw, sex],
+  );
+  return (
+    <Group
+      title="Niveau de force"
+      footer={
+        profile.bw
+          ? `Meilleur 1RM estimé ÷ ton poids de corps (${fmtW(profile.bw)} kg), repères ${sex === 'f' ? 'femmes' : 'hommes'}. Des ordres de grandeur pour te situer, pas une note.`
+          : null
+      }
+    >
+      {!profile.bw ? (
+        <button onClick={onSetup} className="flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left active:bg-fill">
+          <span className="min-w-0 flex-1">
+            <span className="block text-[17px] font-semibold">Situe ta force</span>
+            <span className="block text-[15px] text-muted">Indique ton poids de corps : Novice, Intermédiaire, Avancé ou Élite sur les mouvements de base.</span>
+          </span>
+          <ChevronRight className="h-4 w-4 shrink-0 text-faint" />
+        </button>
+      ) : !rows.length ? (
+        <p className="px-4 py-4 text-[15px] text-muted">Fais un squat, un développé couché, un soulevé de terre ou un développé militaire pour situer ta force.</p>
+      ) : (
+        rows.map(({ id, name, best, lvl }) => (
+          <div key={id} className="sep px-4 py-3">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="min-w-0 text-[17px] font-semibold leading-tight">{name}</span>
+              <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[13px] font-semibold ${lvl.index >= 2 ? 'bg-pink text-white' : 'bg-fill text-white'}`}>{lvl.level}</span>
+            </div>
+            <div className="mt-0.5 text-[13px] text-muted">
+              <span className="font-num">{fmtW(best)} kg</span> estimés · <span className="font-num">{lvl.ratio.toLocaleString('fr-FR', { maximumFractionDigits: 2 })}×</span> ton poids
+            </div>
+            <div className="mt-2 flex gap-1" role="img" aria-label={`${lvl.level}${lvl.next ? `, ${Math.round(lvl.progress * 100)} % du chemin vers ${lvl.next.level}` : ''}`}>
+              {LEVELS.map((l, i) => (
+                <span key={l} className="h-1.5 flex-1 overflow-hidden rounded-full bg-fill">
+                  <span className="block h-full rounded-full bg-pink" style={{ width: `${i < lvl.index ? 100 : i === lvl.index ? Math.round(lvl.progress * 100) : 0}%` }} />
+                </span>
+              ))}
+            </div>
+            {lvl.next && (
+              <div className="mt-1.5 text-[13px] text-muted">
+                {lvl.next.level} à <span className="font-num font-semibold text-white">{fmtW(lvl.next.kg)} kg</span> estimés
+              </div>
+            )}
+          </div>
+        ))
+      )}
+    </Group>
+  );
+}
+
 /** Onglet « Progrès » : régularité, récupération, volume par muscle, force par exercice, dernières séances. */
 export default function ProgressTab() {
   const { state, deleteSession, restoreSession, setDeload, setExerciseGroup } = useStore();
@@ -46,6 +154,8 @@ export default function ProgressTab() {
   const [detailId, setDetailId] = useState(null);
   const [week, setWeek] = useState('this');
   const [assigning, setAssigning] = useState(false);
+  const [settings, setSettings] = useState(false);
+  const profile = state.profiles.find((p) => p.id === pid) ?? state.profiles[0];
 
   const mine = useMemo(() => state.sessions.filter((s) => s.profileId === pid), [state.sessions, pid]);
   const byId = useMemo(() => Object.fromEntries(state.exercises.map((e) => [e.id, e])), [state.exercises]);
@@ -114,7 +224,8 @@ export default function ProgressTab() {
           </section>
 
           {/* Régularité */}
-          <div className="mt-9 grid grid-cols-2 gap-2">
+          <Calendar sessions={mine} />
+          <div className="mt-2 grid grid-cols-2 gap-2">
             <div className={`rounded-2xl px-3.5 py-3 ${streak >= 2 ? 'bg-pink text-white' : 'bg-card'}`}>
               <div className="font-num text-[24px] font-bold leading-tight">
                 {streak} <span className="text-[15px] font-semibold">sem.</span>
@@ -168,6 +279,8 @@ export default function ProgressTab() {
         </Group>
       )}
 
+      {mine.length > 0 && <Strength sessions={mine} profile={profile} onSetup={() => setSettings(true)} />}
+
       {/* Attribuer un muscle aux exercices perso (pour le volume) */}
       <Sheet open={assigning} onClose={() => setAssigning(false)} title="Muscle de tes exercices perso">
         <div className="space-y-4">
@@ -187,6 +300,7 @@ export default function ProgressTab() {
         </div>
       </Sheet>
 
+      <SettingsSheet open={settings} onClose={() => setSettings(false)} />
       <ProgressDetail exerciseId={progressOf} onClose={() => setProgressOf(null)} />
       <SessionDetail session={mine.find((s) => s.id === detailId)} onClose={() => setDetailId(null)} onDelete={() => remove(mine.find((s) => s.id === detailId))} />
     </Page>

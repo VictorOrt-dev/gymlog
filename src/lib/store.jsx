@@ -148,6 +148,8 @@ export function StoreProvider({ children }) {
 
       /** L'app est personnelle (une personne par téléphone) : seul le prénom se règle. */
       renameProfile: (name) => set((s) => ({ ...s, profiles: s.profiles.map((p) => (p.id === s.profileId ? { ...p, name } : p)) })),
+      /** Poids de corps (kg) et sexe ('h' | 'f') : uniquement pour situer sa force (repères ramenés au poids). */
+      setProfileInfo: (patch) => set((s) => ({ ...s, profiles: s.profiles.map((p) => (p.id === s.profileId ? { ...p, ...patch } : p)) })),
 
       /**
        * Sauvegarde en 1 tap : le menu « Partager » du téléphone (iCloud Drive, Google Drive, AirDrop, WhatsApp…).

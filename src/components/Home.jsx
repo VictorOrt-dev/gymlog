@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { MODELS, uid } from '../lib/defaults';
-import { weekStreak } from '../lib/stats';
+import { nextPlanned, weekStreak } from '../lib/stats';
 import { useStore } from '../lib/store';
 import { ago } from '../lib/training';
 import SettingsSheet, { isExportStale } from './SettingsSheet';
@@ -61,6 +61,9 @@ export default function Home({ onOpenSession }) {
   const doneCount = week.filter((d) => d.done).length;
   const plannedCount = plan.filter((x) => tplById[x]).length;
   const { streak } = weekStreak(mine, plannedCount || 3);
+  const next = nextPlanned(plan, new Set(templates.map((t) => t.id)), today.i);
+  const nextTpl = next && tplById[next.templateId];
+  const nextWhen = next && (next.label === 'demain' ? 'Demain' : DAY_NAMES[next.day]);
   const preview = (ids) => ids.map((id) => exName[id]).filter(Boolean).join(' · ');
   const dateLabel = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 
@@ -117,13 +120,32 @@ export default function Home({ onOpenSession }) {
             <p className="mt-1 line-clamp-2 text-[15px] text-muted">{preview(todayTpl.exerciseIds) || 'Aucun exercice pour l’instant'}</p>
             <PrimaryButton onClick={() => start(todayTpl.id)}>Commencer</PrimaryButton>
           </>
+        ) : today.done ? (
+          <>
+            <p className="text-[13px] font-semibold text-pink">Terminé</p>
+            <p className="mt-1 text-[28px] font-bold leading-tight tracking-tight">Séance faite</p>
+            <p className="mt-1 text-[15px] text-muted">Mange, dors, reviens plus fort.</p>
+            {nextTpl && (
+              <p className="mt-3 border-t-[0.5px] border-line pt-3 text-[15px] text-muted">
+                Prochaine séance : <span className="font-semibold text-white">{nextTpl.name || 'Séance'}</span> · {nextWhen}
+              </p>
+            )}
+          </>
+        ) : nextTpl ? (
+          // Jour de repos : la prochaine séance en vue, et la liberté de l'avancer d'un tap
+          <>
+            <p className="text-[13px] font-semibold text-muted">Repos aujourd’hui · prochaine séance</p>
+            <p className="mt-1 truncate text-[28px] font-bold leading-tight tracking-tight">
+              {nextTpl.name || 'Séance'} <span className="text-muted">· {nextWhen}</span>
+            </p>
+            <p className="mt-1 line-clamp-2 text-[15px] text-muted">{preview(nextTpl.exerciseIds) || 'Aucun exercice pour l’instant'}</p>
+            <PrimaryButton onClick={() => start(nextTpl.id)}>La faire maintenant</PrimaryButton>
+          </>
         ) : (
           <>
-            <p className={`text-[13px] font-semibold ${today.done ? 'text-pink' : 'text-muted'}`}>{today.done ? 'Terminé' : 'Au programme'}</p>
-            <p className="mt-1 text-[28px] font-bold leading-tight tracking-tight">{today.done ? 'Séance faite' : 'Repos'}</p>
-            <p className="mt-1 text-[15px] text-muted">
-              {today.done ? 'Mange, dors, reviens plus fort.' : 'La récupération fait partie du programme. Envie quand même ? Choisis une séance plus bas.'}
-            </p>
+            <p className="text-[13px] font-semibold text-muted">Au programme</p>
+            <p className="mt-1 text-[28px] font-bold leading-tight tracking-tight">Repos</p>
+            <p className="mt-1 text-[15px] text-muted">La récupération fait partie du programme. Touche un jour de la semaine pour y placer une séance.</p>
           </>
         )}
       </div>
@@ -147,7 +169,15 @@ export default function Home({ onOpenSession }) {
       {/* 2. La semaine : fréquence et jours off d'un coup d'œil */}
       <Group
         title="Cette semaine"
-        footer={`${doneCount} séance${doneCount > 1 ? 's' : ''} sur ${plannedCount}${streak >= 2 ? ` · ${streak} semaines d’affilée` : ''}${deloadActive ? ' · semaine de décharge' : ''} · touche un jour pour changer sa séance`}
+        action={
+          // Régularité : affichée seulement quand elle existe — jamais de « 0 » culpabilisant
+          streak >= 1 && (
+            <span className="rounded-full bg-pink/12 px-2.5 py-1 text-[13px] font-semibold text-pink" aria-label={`${streak} semaine${streak > 1 ? 's' : ''} d’affilée au rendez-vous`}>
+              🔥 {streak} semaine{streak > 1 ? 's' : ''}
+            </span>
+          )
+        }
+        footer={`${doneCount} séance${doneCount > 1 ? 's' : ''} sur ${plannedCount}${deloadActive ? ' · semaine de décharge' : ''} · touche un jour pour changer sa séance`}
       >
         <div className="grid grid-cols-7 px-1 py-4">
           {week.map((d) => {
@@ -190,20 +220,31 @@ export default function Home({ onOpenSession }) {
             </div>
           </SwipeRow>
         ))}
-        <div className="sep flex items-center gap-3 pr-3">
-          <div className="min-w-0 flex-1 py-3 pl-4">
-            <div className="text-[17px] font-semibold">Séance libre</div>
-            <div className="truncate text-[15px] text-muted">Sans programme, ajoute les exercices au fil de l’eau</div>
-          </div>
-          <PlayButton label="Démarrer une séance libre" onClick={() => start(null)} disabled={!!draft} />
-        </div>
         <button onClick={() => setCreating(true)} className="sep flex h-12 w-full items-center gap-2 px-4 text-[17px] text-pink active:opacity-50">
-          <Plus className="h-5 w-5" /> Créer une séance
+          <Plus className="h-5 w-5" /> Nouvelle séance
         </button>
       </Group>
 
       {/* Feuilles et vues détaillées */}
       <Sheet open={creating} onClose={() => setCreating(false)} title="Nouvelle séance">
+        {/* Séance libre : tout de suite, sans rien préparer */}
+        <button
+          onClick={() => {
+            setCreating(false);
+            start(null);
+          }}
+          disabled={!!draft}
+          className="mb-6 flex min-h-14 w-full items-center gap-3 rounded-2xl bg-fill px-4 py-3 text-left active:bg-fill-hi disabled:opacity-40"
+        >
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-pink pl-0.5 text-[13px] text-white" aria-hidden="true">
+            ▶
+          </span>
+          <span className="min-w-0">
+            <span className="block text-[17px] font-semibold">Séance libre, maintenant</span>
+            <span className="block text-[15px] text-muted">{draft ? 'Termine d’abord la séance en cours' : 'Sans programme, ajoute les exercices au fil de l’eau'}</span>
+          </span>
+        </button>
+        <h3 className="mb-2 px-1 text-[15px] font-semibold text-muted">Ou crée une séance réutilisable</h3>
         <div className="overflow-hidden rounded-2xl bg-fill">
           <button onClick={() => createFrom(null)} className="sep flex w-full items-center gap-3 px-4 py-3 text-left active:bg-fill-hi">
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-pink text-white">
