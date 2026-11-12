@@ -86,11 +86,22 @@ export function StoreProvider({ children }) {
 
       addExercise: (name) => {
         const id = uid();
-        set((s) => ({ ...s, exercises: [...s.exercises, { id, name, group: CUSTOM_GROUP, inc: 2.5, rest: DEFAULT_REST }] }));
+        set((s) => ({ ...s, exercises: [...s.exercises, { id, name, group: CUSTOM_GROUP, inc: 2.5, rest: DEFAULT_REST, range: [8, 12] }] }));
         return id;
       },
       setExerciseRest: (id, rest) =>
         set((s) => ({ ...s, exercises: s.exercises.map((e) => (e.id === id ? { ...e, rest } : e)) })),
+
+      setExerciseRange: (id, range) =>
+        set((s) => ({ ...s, exercises: s.exercises.map((e) => (e.id === id ? { ...e, range } : e)) })),
+      /** Note persistante par exercice ET par profil (chacun ses réglages de machine). */
+      setNote: (exerciseId, text) =>
+        set((s) => {
+          const mine = { ...(s.notes?.[s.profileId] ?? {}) };
+          if (text.trim()) mine[exerciseId] = text.trim();
+          else delete mine[exerciseId];
+          return { ...s, notes: { ...s.notes, [s.profileId]: mine } };
+        }),
 
       saveTemplate: (tpl) =>
         set((s) => ({

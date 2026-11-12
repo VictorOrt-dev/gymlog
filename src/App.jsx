@@ -34,10 +34,10 @@ function Shell() {
     return (
       <SessionLogger
         onExit={() => setInSession(false)}
-        onFinished={({ sets, records }) => {
+        onFinished={({ sets, any, records }) => {
           setInSession(false);
           setTab('train');
-          if (!sets) return notify('Séance vide abandonnée');
+          if (!any) return notify('Séance vide abandonnée');
           notify(records ? `Bravo · ${records} record${records > 1 ? 's' : ''} de force ▲` : `Séance enregistrée · ${sets} série${sets > 1 ? 's' : ''}`);
         }}
       />

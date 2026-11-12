@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useStore } from '../lib/store';
-import { fmtSet, pctChange, previousOf, seriesFor } from '../lib/training';
+import { fmtSet, isStalling, pctChange, previousOf, seriesFor } from '../lib/training';
 import { Sparkline } from './Charts';
 import { Change } from './ProgressDetail';
 import { ChevronRight } from './Icons';
@@ -23,6 +23,7 @@ function Tile({ title, series, onClick }) {
       <span className="mt-1 truncate text-[13px] text-muted">
         <Change pct={pctChange(last.value, previousOf(series, last)?.value)} /> · {fmtSet(last.best)}
       </span>
+      {isStalling(series.points.map((p) => p.value)) && <span className="mt-1 text-[12px] font-semibold text-white/70">Stagne depuis 3 séances</span>}
       <Sparkline values={series.points.slice(-LAST).map((p) => p.value)} height={34} className="mt-3" />
     </button>
   );

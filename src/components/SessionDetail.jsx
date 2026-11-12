@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useStore } from '../lib/store';
-import { fmtInt, fmtSet, tonnage } from '../lib/training';
+import { fmtInt, fmtSet, tonnage, work } from '../lib/training';
 import Sheet from './Sheet';
 import { Stat } from './ui';
 
 export const sessionStats = (s) => {
-  const sets = s.items.reduce((n, it) => n + it.sets.length, 0);
-  const volume = s.items.reduce((v, it) => v + tonnage(it.sets), 0);
+  const sets = s.items.reduce((n, it) => n + work(it.sets).length, 0); // échauffements exclus
+  const volume = s.items.reduce((v, it) => v + tonnage(work(it.sets)), 0);
   const minutes = Math.max(1, Math.round(((s.endedAt ?? s.startedAt) - s.startedAt) / 60e3));
   return { sets, volume, minutes };
 };
@@ -46,13 +46,16 @@ export default function SessionDetail({ session, onClose, onDelete }) {
         {session.items.map((it) => (
           <div key={it.exerciseId} className="overflow-hidden rounded-2xl bg-fill">
             <div className="px-4 pb-1.5 pt-3 text-[17px] font-semibold">{names[it.exerciseId] ?? 'Exercice supprimé'}</div>
-            {it.sets.map((x, i) => (
-              <div key={i} className="sep flex items-center gap-3 px-4 py-2.5">
-                <span className="w-5 font-num text-[13px] tabular-nums text-muted">{i + 1}</span>
-                <span className="flex-1 font-num text-[17px] font-semibold tabular-nums">{fmtSet(x)}</span>
-                {x.rir != null && <span className="text-[13px] text-muted">RIR {x.rir >= 4 ? '4+' : x.rir}</span>}
-              </div>
-            ))}
+            {(() => {
+              let n = 0;
+              return it.sets.map((x, i) => (
+                <div key={i} className={`sep flex items-center gap-3 px-4 py-2.5 ${x.wu ? 'text-muted' : ''}`}>
+                  <span className="w-5 font-num text-[13px] tabular-nums text-muted">{x.wu ? 'É' : ++n}</span>
+                  <span className={`flex-1 font-num tabular-nums ${x.wu ? 'text-[15px]' : 'text-[17px] font-semibold'}`}>{fmtSet(x)}</span>
+                  {x.wu ? <span className="text-[13px]">Échauffement</span> : x.rir != null && <span className="text-[13px] text-muted">RIR {x.rir >= 4 ? '4+' : x.rir}</span>}
+                </div>
+              ));
+            })()}
           </div>
         ))}
       </div>

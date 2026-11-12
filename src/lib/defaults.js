@@ -3,7 +3,7 @@ export const uid = () => Date.now().toString(36) + Math.random().toString(36).sl
 export const slug = (s) =>
   s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
-export const VERSION = 2;
+export const VERSION = 3;
 export const DEFAULT_REST = 120;
 export const CUSTOM_GROUP = 'Mes exercices';
 
@@ -125,8 +125,15 @@ const LIBRARY = {
 
 export const GROUPS = Object.keys(LIBRARY);
 
+/**
+ * Fourchette de reps par défaut, déduite du type d'exercice (via son temps de repos) :
+ * gros polyarticulaires lourds 5–8, polyarticulaires 6–10, accessoires 8–12, isolation 10–15, abdos 12–20.
+ */
+export const defaultRange = (rest) => (rest >= 180 ? [5, 8] : rest >= 150 ? [6, 10] : rest >= 120 ? [8, 12] : rest >= 90 ? [10, 15] : rest > 0 ? [12, 20] : [8, 12]);
+export const RANGES = [[3, 5], [5, 8], [6, 10], [8, 12], [10, 15], [12, 20]];
+
 export const libraryExercises = () =>
-  Object.entries(LIBRARY).flatMap(([group, list]) => list.map(([name, inc, rest]) => ({ id: slug(name), name, group, inc, rest })));
+  Object.entries(LIBRARY).flatMap(([group, list]) => list.map(([name, inc, rest]) => ({ id: slug(name), name, group, inc, rest, range: defaultRange(rest) })));
 
 /** Modèles prêts à l'emploi : on les ajoute à ses séances, puis on les modifie comme on veut. */
 export const MODELS = [
@@ -165,27 +172,35 @@ export function initialState() {
     templates,
     plans: { [profile.id]: plan },
     drafts: {}, // séance en cours, par profil : survit au verrouillage / rechargement
+    notes: {}, // { [profileId]: { [exerciseId]: "Siège cran 4" } }
     lastExport: null,
     sessions: [],
   };
 }
 
-/** Fait évoluer des données anciennes (ou une sauvegarde importée) sans rien perdre. */
-export function migrate(s) {
-  if ((s.v ?? 1) >= VERSION) return s;
-  // v1 → v2 : bibliothèque complète classée par muscle + séances Upper / Lower / Full body
-  const lib = libraryExercises();
-  const libById = new Map(lib.map((e) => [e.id, e]));
-  const have = new Set(s.exercises.map((e) => e.id));
-  const exercises = [
-    ...s.exercises.map((e) => ({ ...e, group: libById.get(e.id)?.group ?? e.group ?? CUSTOM_GROUP })),
-    ...lib.filter((e) => !have.has(e.id)),
-  ];
-  const templates = [...s.templates];
-  for (const p of s.profiles) {
-    for (const name of ['Upper', 'Lower', 'Full body']) {
-      if (!templates.some((t) => t.profileId === p.id && t.name === name)) templates.push(templateFromModel(p.id, name));
+/** Fait évoluer des données anciennes (ou une sauvegarde importée) sans rien perdre, étape par étape. */
+export function migrate(input) {
+  let s = input;
+  if ((s.v ?? 1) < 2) {
+    // v1 → v2 : bibliothèque complète classée par muscle + séances Upper / Lower / Full body
+    const lib = libraryExercises();
+    const libById = new Map(lib.map((e) => [e.id, e]));
+    const have = new Set(s.exercises.map((e) => e.id));
+    const exercises = [
+      ...s.exercises.map((e) => ({ ...e, group: libById.get(e.id)?.group ?? e.group ?? CUSTOM_GROUP })),
+      ...lib.filter((e) => !have.has(e.id)),
+    ];
+    const templates = [...s.templates];
+    for (const p of s.profiles) {
+      for (const name of ['Upper', 'Lower', 'Full body']) {
+        if (!templates.some((t) => t.profileId === p.id && t.name === name)) templates.push(templateFromModel(p.id, name));
+      }
     }
+    s = { ...s, v: 2, exercises, templates };
   }
-  return { ...s, v: VERSION, exercises, templates };
+  if (s.v < 3) {
+    // v2 → v3 : fourchette de reps par exercice + notes par profil
+    s = { ...s, v: 3, notes: s.notes ?? {}, exercises: s.exercises.map((e) => ({ ...e, range: e.range ?? defaultRange(e.group === CUSTOM_GROUP ? 0 : e.rest) })) };
+  }
+  return s;
 }

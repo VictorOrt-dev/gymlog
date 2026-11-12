@@ -3,8 +3,16 @@
 export const round = (x) => Math.round(x * 100) / 100;
 export const norm = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 
-/** 1RM estimé (Epley) : met 82,5×6 et 80×8 sur la même échelle. Au poids du corps : les reps. */
-export const e1rm = ({ w, r }) => (w > 0 ? w * (1 + r / 30) : r);
+/**
+ * 1RM estimé (Epley) calculé sur les reps JUSQU'À L'ÉCHEC = reps faites + RIR.
+ * 80 × 8 à RIR 3 (11 reps possibles) pèse plus lourd que 80 × 8 à l'échec. Au poids du corps : la même logique en reps.
+ */
+export const repsToFailure = ({ r, rir }) => r + Math.min(4, Math.max(0, rir ?? 0));
+export const e1rm = (s) => (s.w > 0 ? s.w * (1 + Math.min(30, repsToFailure(s)) / 30) : repsToFailure(s));
+
+/** Séries d'échauffement : visibles, mais exclues de « À battre », des records et des courbes. */
+export const isWarmup = (s) => !!s.wu;
+export const work = (sets) => sets.filter((s) => !s.wu);
 
 /** Dernière perf de chaque exercice pour un profil → { [exerciseId]: { at, sets } } */
 export function lastPerformances(sessions, profileId) {
@@ -12,7 +20,10 @@ export function lastPerformances(sessions, profileId) {
   for (let i = sessions.length - 1; i >= 0; i--) {
     const s = sessions[i];
     if (s.profileId !== profileId) continue;
-    for (const it of s.items) if (!out[it.exerciseId] && it.sets.length) out[it.exerciseId] = { at: s.startedAt, sets: it.sets };
+    for (const it of s.items) {
+      const sets = work(it.sets);
+      if (!out[it.exerciseId] && sets.length) out[it.exerciseId] = { at: s.startedAt, sets }; // séries de travail uniquement
+    }
   }
   return out;
 }
@@ -25,19 +36,33 @@ export function trend(set, ref) {
 }
 
 /**
- * Objectif du jour — double progression pilotée par le RIR :
- *  - de la marge sur TOUTES les séries (RIR ≥ 2) → on charge
- *  - 1 rep de marge au pire                      → même charge, +1 rep
- *  - échec (RIR 0)                               → on égale, proprement
+ * Objectif du jour — double progression par fourchette (ex. 8–12) :
+ *  - toutes les séries de travail ont atteint le haut de la fourchette → on charge et on repart du bas ;
+ *  - sinon → même charge, +1 rep (sans dépasser le haut) ;
+ *  - sous le bas de la fourchette → même charge, on vise le bas.
  */
-export function target(prev, inc = 2.5) {
-  if (!prev?.sets?.length) return null;
-  const top = prev.sets[0];
-  const rirs = prev.sets.map((s) => s.rir).filter((x) => x != null);
-  const minRir = rirs.length ? Math.min(...rirs) : 1;
-  if (minRir >= 2 && top.w > 0) return { w: round(top.w + inc), r: top.r, why: 'De la marge partout : on charge' };
-  if (minRir >= 1) return { w: top.w, r: top.r + 1, why: '+1 rep à charge égale' };
-  return { w: top.w, r: top.r, why: "Échec la dernière fois : on égale" };
+export function target(prevSets, { inc = 2.5, range = [8, 12] } = {}) {
+  const sets = work(prevSets ?? []);
+  if (!sets.length) return null;
+  const [lo, hi] = range;
+  const top = sets[0];
+  if (sets.every((s) => s.r >= hi)) {
+    if (top.w > 0) return { w: round(top.w + inc), r: lo, why: `Haut de fourchette (${hi}) atteint : on charge, on repart à ${lo}` };
+    return { w: 0, r: hi, why: `${hi} reps partout : ajoute du lest ou passe à une variante plus dure` };
+  }
+  if (top.r < lo) return { w: top.w, r: lo, why: `Vise le bas de ta fourchette (${lo}–${hi}) à cette charge` };
+  const r = Math.min(hi, top.r + 1);
+  return { w: top.w, r, why: r === hi ? `Dernière marche : ${hi} reps, puis on charge` : `+1 rep, objectif ${hi} reps avant de charger` };
+}
+
+/**
+ * Stagnation : la meilleure série (1RM estimé) des 3 dernières séances ne dépasse pas celle d'avant.
+ * `values` = une valeur par séance, de la plus ancienne à la plus récente.
+ */
+export function isStalling(values) {
+  if (values.length < 4) return false;
+  const ref = values.at(-4);
+  return Math.max(...values.slice(-3)) <= ref * 1.005;
 }
 
 export const fmtInt = (n) => Math.round(n).toLocaleString('fr-FR');
@@ -78,13 +103,13 @@ export function ago(ts) {
 }
 
 /** Séries de travail : RIR ≤ 3. Une série à 5 reps de l'échec, c'est de l'échauffement. */
-export const workSets = (sets) => sets.filter((s) => s.rir == null || s.rir <= 3);
+export const workSets = (sets) => sets.filter((s) => !s.wu && (s.rir == null || s.rir <= 3));
 
 /** La meilleure série d'une liste, au sens du 1RM estimé. */
 export const bestOf = (sets) => sets.reduce((a, b) => (e1rm(b) > e1rm(a) ? b : a));
 
 export const METRICS = {
-  best: { label: 'Force', short: '1RM estimé', help: 'Ta meilleure série convertie en 1RM estimé : le poids que tu pourrais soulever une seule fois. Le vrai thermomètre de ta force.' },
+  best: { label: 'Force', short: '1RM estimé', help: 'Ta meilleure série convertie en 1RM estimé (reps + RIR, échauffements exclus) : le poids que tu pourrais soulever une seule fois. Le vrai thermomètre de ta force.' },
   effective: { label: 'Tonnage effectif', short: 'Tonnage effectif', help: 'Poids × reps des seules séries de travail (RIR ≤ 3). Les séries trop faciles ne gonflent pas le chiffre.' },
 };
 
@@ -97,7 +122,8 @@ export function seriesFor(sessions, exerciseId, metric = 'best') {
   const pts = [];
   for (const s of sessions) {
     const it = s.items.find((i) => i.exerciseId === exerciseId);
-    if (it?.sets.length) pts.push({ at: s.startedAt, sets: it.sets, session: s });
+    const sets = it ? work(it.sets) : [];
+    if (sets.length) pts.push({ at: s.startedAt, sets, session: s });
   }
   const bw = isBodyweight(pts.flatMap((p) => p.sets));
   const value = (sets) => {

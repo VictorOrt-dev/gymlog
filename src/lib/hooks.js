@@ -112,7 +112,15 @@ export function useRestTimer() {
     [],
   );
 
-  const stop = useCallback(() => setState(null), []);
+  // Effacement immédiat : à la fin d'une séance, l'écran se démonte avant que l'effet n'ait tourné.
+  const stop = useCallback(() => {
+    try {
+      localStorage.removeItem(K_TIMER);
+    } catch {
+      /* ignore */
+    }
+    setState(null);
+  }, []);
 
   return { state, start, add, stop };
 }

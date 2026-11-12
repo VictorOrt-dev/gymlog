@@ -102,7 +102,7 @@ export default function Home({ onOpenSession }) {
             <p className="text-[13px] font-semibold text-pink">En cours</p>
             <p className="mt-1 truncate text-[28px] font-bold leading-tight tracking-tight">{draft.name}</p>
             <p className="mt-1 text-[15px] text-muted">
-              {draft.items.reduce((n, it) => n + it.sets.length, 0)} séries · depuis{' '}
+              {draft.items.reduce((n, it) => n + it.sets.filter((x) => !x.wu).length, 0)} séries · depuis{' '}
               {new Date(draft.startedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
             </p>
             <PrimaryButton onClick={onOpenSession}>Reprendre</PrimaryButton>

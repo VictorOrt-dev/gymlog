@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { DEFAULT_REST } from '../lib/defaults';
 import { useNow, useRestTimer, useWakeLock } from '../lib/hooks';
 import { useStore } from '../lib/store';
-import { bestOf, e1rm, lastPerformances, mmss } from '../lib/training';
+import { bestOf, e1rm, isStalling, lastPerformances, mmss, seriesFor, work } from '../lib/training';
 import ExerciseCard from './ExerciseCard';
 import ExercisePicker from './ExercisePicker';
 import RestTimer from './RestTimer';
@@ -20,12 +20,18 @@ function Elapsed({ since }) {
  * tout est sauvegardé à chaque tap (verrouiller le téléphone ou recharger ne perd rien).
  */
 export default function SessionLogger({ onExit, onFinished }) {
-  const { state, setDraft, finishSession, setExerciseRest } = useStore();
+  const { state, setDraft, finishSession, setExerciseRest, setExerciseRange, setNote } = useStore();
   const draft = state.drafts[state.profileId];
   const items = draft?.items ?? [];
 
   const byId = useMemo(() => Object.fromEntries(state.exercises.map((e) => [e.id, e])), [state.exercises]);
   const last = useMemo(() => lastPerformances(state.sessions, state.profileId), [state.sessions, state.profileId]);
+  const notes = state.notes?.[state.profileId] ?? {};
+  // Stagnation : meilleure série (1RM estimé) qui ne progresse plus depuis 3 séances
+  const stalled = useMemo(() => {
+    const mine = state.sessions.filter((s) => s.profileId === state.profileId);
+    return Object.fromEntries((draft?.items ?? []).map((it) => [it.exerciseId, isStalling(seriesFor(mine, it.exerciseId).points.map((p) => p.value))]));
+  }, [state.sessions, state.profileId, draft?.items.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [open, setOpen] = useState(() => Math.max(0, items.findIndex((it) => !it.sets.length)));
   const [picking, setPicking] = useState(false);
@@ -43,7 +49,8 @@ export default function SessionLogger({ onExit, onFinished }) {
   if (!draft) return null;
 
   const openEx = byId[items[open]?.exerciseId];
-  const total = items.reduce((n, it) => n + it.sets.length, 0);
+  const total = items.reduce((n, it) => n + work(it.sets).length, 0); // séries de travail (échauffements exclus)
+  const any = items.some((it) => it.sets.length);
   const restFor = (ex) => ex?.rest ?? DEFAULT_REST;
 
   const patchSets = (i, fn) => setDraft((d) => ({ ...d, items: d.items.map((it, j) => (j === i ? { ...it, sets: fn(it.sets) } : it)) }));
@@ -51,10 +58,10 @@ export default function SessionLogger({ onExit, onFinished }) {
   const finish = () => {
     if (!confirming) return setConfirming(true);
     // Records de force : exercices dont la meilleure série (1RM estimé) bat celle de la dernière fois
-    const records = items.filter((it) => it.sets.length && last[it.exerciseId] && e1rm(bestOf(it.sets)) > e1rm(bestOf(last[it.exerciseId].sets)) + 0.05).length;
+    const records = items.filter((it) => work(it.sets).length && last[it.exerciseId] && e1rm(bestOf(work(it.sets))) > e1rm(bestOf(last[it.exerciseId].sets)) + 0.05).length;
     timer.stop();
     finishSession();
-    onFinished({ sets: total, records });
+    onFinished({ sets: total, any, records });
   };
 
   return (
@@ -75,7 +82,7 @@ export default function SessionLogger({ onExit, onFinished }) {
             onClick={finish}
             className={`h-11 justify-self-end rounded-full px-4 text-[17px] font-semibold ${confirming ? 'bg-pink text-white' : 'text-pink active:opacity-50'}`}
           >
-            {confirming ? (total ? 'Confirmer' : 'Abandonner') : 'Terminer'}
+            {confirming ? (any ? 'Confirmer' : 'Abandonner') : 'Terminer'}
           </button>
         </div>
       </header>
@@ -87,6 +94,10 @@ export default function SessionLogger({ onExit, onFinished }) {
             exercise={byId[it.exerciseId] ?? { name: 'Exercice supprimé', inc: 2.5 }}
             item={it}
             prev={last[it.exerciseId]}
+            note={notes[it.exerciseId]}
+            stalled={stalled[it.exerciseId]}
+            onRange={(range) => setExerciseRange(it.exerciseId, range)}
+            onNote={(text) => setNote(it.exerciseId, text)}
             open={open === i}
             onToggle={() => setOpen(open === i ? -1 : i)}
             onAdd={(set) => {
