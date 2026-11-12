@@ -185,6 +185,17 @@ export function seedProfile(name) {
   return { profile, templates, plan };
 }
 
+/**
+ * Planning issu du premier lancement : les séances gardées, distribuées dans l'ordre sur les jours choisis
+ * (3 jours + Push/Pull/Legs → L Push, M Pull, V Legs ; 4 jours + Upper/Lower → U L U L).
+ */
+export function planFromChoice(days, templateIds) {
+  const plan = Array(7).fill(null);
+  if (!templateIds.length) return plan;
+  [...days].sort((a, b) => a - b).forEach((d, k) => (plan[d] = templateIds[k % templateIds.length]));
+  return plan;
+}
+
 export function initialState() {
   const { profile, templates, plan } = seedProfile('Moi');
   return {
@@ -198,6 +209,7 @@ export function initialState() {
     notes: {}, // { [profileId]: { [exerciseId]: "Siège cran 4" } }
     deload: {}, // { [profileId]: date de fin de la semaine de décharge }
     lastExport: null,
+    onboarded: false, // premier lancement : prénom, jours, séances gardées
     sessions: [],
   };
 }
@@ -237,5 +249,7 @@ export function migrate(input) {
       templates: s.templates.map((t) => ({ ...t, supersets: t.supersets ?? [] })),
     };
   }
+  // Données existantes sans le drapeau : l'app était déjà utilisée, pas d'écran de bienvenue.
+  if (s.onboarded == null) s = { ...s, onboarded: true };
   return s;
 }

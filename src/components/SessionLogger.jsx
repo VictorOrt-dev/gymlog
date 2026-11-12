@@ -145,7 +145,7 @@ export default function SessionLogger({ onExit, onFinished }) {
     const summary = any ? buildSummary(draft, state.sessions) : null; // avant d'archiver : comparaison avec l'historique d'avant
     timer.stop();
     finishSession();
-    onFinished({ summary });
+    onFinished({ summary, sessionId: draft.id });
   };
 
   const menuItem = menu != null ? items[menu] : null;
@@ -241,6 +241,12 @@ export default function SessionLogger({ onExit, onFinished }) {
           />
         ))}
 
+        {!items.length && (
+          <div className="px-4 pb-2 pt-8 text-center">
+            <p className="text-[20px] font-bold tracking-tight">Séance libre</p>
+            <p className="mt-1 text-[15px] text-muted">Ajoute ton premier exercice : ta dernière fois et ton objectif s’affichent tout seuls.</p>
+          </div>
+        )}
         <button
           onClick={() => setPicking('add')}
           className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-card text-[17px] font-medium text-pink active:opacity-60"

@@ -10,7 +10,7 @@ import SessionDetail, { sessionStats } from './SessionDetail';
 import SettingsSheet from './SettingsSheet';
 import Sheet from './Sheet';
 import { useToast } from './Toast';
-import { ChevronRight } from './Icons';
+import { ChevronRight, TabProgress } from './Icons';
 import { Group, LargeTitle, Page } from './ui';
 
 const SCALE = 25; // séries : l'échelle des barres de volume
@@ -38,18 +38,37 @@ function VolumeRow({ group, value }) {
   );
 }
 
+/** Un des 4 blocs de l'onglet : un titre, du contenu, de l'air. */
+const Block = ({ title, right, children }) => (
+  <section className="mt-10">
+    <div className="mb-2.5 flex items-baseline justify-between gap-3 px-1">
+      <h2 className="text-[22px] font-bold tracking-tight">{title}</h2>
+      {right}
+    </div>
+    {children}
+  </section>
+);
+
 const MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
 
 /** 12 semaines, un carré par jour (lundi en haut) : la régularité se lit d'un regard. CSS pur, aucune librairie. */
-function Calendar({ sessions }) {
+function Calendar({ sessions, streak, children }) {
   const { cols, count } = useMemo(() => calendarGrid(sessions, 12), [sessions]);
   const first = new Date(cols[0][0].ts);
   return (
-    <section className="mt-9">
-      <div className="mb-2 flex items-baseline justify-between px-1">
-        <h2 className="text-[20px] font-bold tracking-tight">Régularité</h2>
-        <span className="text-[13px] text-muted">12 semaines</span>
-      </div>
+    <Block
+      title="Régularité"
+      right={
+        // La série de semaines, seulement quand elle existe : jamais de « 0 » culpabilisant
+        streak >= 1 ? (
+          <span className="rounded-full bg-pink/12 px-2.5 py-1 text-[13px] font-semibold text-pink" aria-label={`${streak} semaine${streak > 1 ? 's' : ''} d’affilée au rendez-vous`}>
+            🔥 {streak} semaine{streak > 1 ? 's' : ''}
+          </span>
+        ) : (
+          <span className="text-[13px] text-muted">12 semaines</span>
+        )
+      }
+    >
       <div className="rounded-2xl bg-card p-4">
         <div
           role="img"
@@ -72,7 +91,8 @@ function Calendar({ sessions }) {
           </span>
         </div>
       </div>
-    </section>
+      {children}
+    </Block>
   );
 }
 
@@ -98,8 +118,10 @@ function Strength({ sessions, profile, onSetup }) {
     [sessions, profile.bw, sex],
   );
   return (
+    <>
+    <h3 className="mb-2 mt-6 px-1 text-[15px] font-semibold text-muted">Niveau de force</h3>
     <Group
-      title="Niveau de force"
+      className=""
       footer={
         profile.bw
           ? `Meilleur 1RM estimé ÷ ton poids de corps (${fmtW(profile.bw)} kg), repères ${sex === 'f' ? 'femmes' : 'hommes'}. Des ordres de grandeur pour te situer, pas une note.`
@@ -142,17 +164,21 @@ function Strength({ sessions, profile, onSetup }) {
         ))
       )}
     </Group>
+    </>
   );
 }
 
-/** Onglet « Progrès » : régularité, récupération, volume par muscle, force par exercice, dernières séances. */
+/**
+ * Onglet « Progrès » : quatre blocs, dans l'ordre où on les regarde.
+ * 1. Force (cartes + niveau) · 2. Volume par muscle · 3. Régularité (+ décharge) · 4. Dernières séances.
+ */
 export default function ProgressTab() {
   const { state, deleteSession, restoreSession, setDeload, setExerciseGroup } = useStore();
   const notify = useToast();
   const pid = state.profileId;
   const [progressOf, setProgressOf] = useState(null);
   const [detailId, setDetailId] = useState(null);
-  const [week, setWeek] = useState('this');
+  const [week, setWeek] = useState(null); // null = automatique (semaine dernière tant que celle-ci est vide)
   const [assigning, setAssigning] = useState(false);
   const [settings, setSettings] = useState(false);
   const profile = state.profiles.find((p) => p.id === pid) ?? state.profiles[0];
@@ -162,10 +188,14 @@ export default function ProgressTab() {
   const recent = mine.slice(-5).reverse();
   const templates = state.templates.filter((t) => t.profileId === pid);
   const perWeek = (state.plans[pid] ?? []).filter((id) => templates.some((t) => t.id === id)).length || 3;
-  const { streak, currentDone } = weekStreak(mine, perWeek);
+  const { streak } = weekStreak(mine, perWeek);
 
   const thisMonday = mondayOf(Date.now());
-  const volume = useMemo(() => weeklyVolume(mine, byId, week === 'this' ? thisMonday : thisMonday - 7 * 864e5), [mine, byId, week, thisMonday]);
+  const volThis = useMemo(() => weeklyVolume(mine, byId, thisMonday), [mine, byId, thisMonday]);
+  const volLast = useMemo(() => weeklyVolume(mine, byId, thisMonday - 7 * 864e5), [mine, byId, thisMonday]);
+  const thisEmpty = !muscleOrder(volThis.byGroup).length && !volThis.unassigned;
+  const shownWeek = week ?? (thisEmpty ? 'last' : 'this');
+  const volume = shownWeek === 'this' ? volThis : volLast;
   const groups = muscleOrder(volume.byGroup);
   const customUsed = state.exercises.filter((e) => e.group === CUSTOM_GROUP && mine.some((s) => s.items.some((i) => i.exerciseId === e.id)));
 
@@ -187,23 +217,32 @@ export default function ProgressTab() {
     <Page>
       <LargeTitle title="Progrès" subtitle={mine.length ? `${mine.length} séance${mine.length > 1 ? 's' : ''} enregistrée${mine.length > 1 ? 's' : ''}` : null} />
 
-      <ProgressSection onOpen={setProgressOf} />
-
-      {mine.length > 0 && (
+      {!mine.length ? (
+        // État vide : une promesse claire plutôt que quatre blocs vides
+        <div className="mt-8 flex flex-col items-center rounded-3xl bg-card px-6 pb-9 pt-10 text-center">
+          <span className="grid h-16 w-16 place-items-center rounded-full bg-pink/12 text-pink">
+            <TabProgress className="h-8 w-8" />
+          </span>
+          <p className="mt-4 text-[22px] font-bold tracking-tight">Ta progression commence ici</p>
+          <p className="mt-1.5 max-w-[17rem] text-[15px] leading-snug text-muted">Termine ta première séance : ta force, ton volume par muscle et ta régularité s’afficheront ici, semaine après semaine.</p>
+        </div>
+      ) : (
         <>
-          {/* Volume hebdomadaire par muscle */}
-          <section className="mt-9">
-            <div className="mb-2 flex items-baseline justify-between px-1">
-              <h2 className="text-[20px] font-bold tracking-tight">Volume par muscle</h2>
-              <span className="text-[13px] text-muted">séries / semaine</span>
-            </div>
+          {/* 1. Force */}
+          <Block title="Force" right={<span className="text-[13px] text-muted">1RM estimé</span>}>
+            <ProgressSection onOpen={setProgressOf} />
+            <Strength sessions={mine} profile={profile} onSetup={() => setSettings(true)} />
+          </Block>
+
+          {/* 2. Volume par muscle (repli automatique sur la semaine dernière le lundi) */}
+          <Block title="Volume" right={<span className="text-[13px] text-muted">séries / semaine</span>}>
             <Segmented
               label="Semaine"
               options={[
                 ['this', 'Cette semaine'],
                 ['last', 'Semaine dernière'],
               ]}
-              value={week}
+              value={shownWeek}
               onChange={setWeek}
               size="h-11 text-[13px]"
             />
@@ -214,72 +253,61 @@ export default function ProgressTab() {
               {!groups.length && <p className="px-4 py-4 text-[15px] text-muted">Aucune série de travail sur cette semaine.</p>}
             </div>
             <p className="mt-2 px-4 text-[13px] leading-snug text-muted">
-              Repère hypertrophie : 10 à 20 séries de travail par muscle et par semaine (zone grisée). Un exercice compte ½ série pour ses muscles secondaires.
+              {week == null && thisEmpty ? 'Rien encore cette semaine : voici la semaine dernière. ' : ''}
+              Repère : 10 à 20 séries par muscle et par semaine (zone grisée) ; ½ série pour les muscles secondaires.
             </p>
             {volume.unassigned > 0 && (
               <button onClick={() => setAssigning(true)} className="mt-1 flex min-h-11 w-full items-center px-4 text-left text-[13px] text-pink active:opacity-60">
                 {fmtSets(volume.unassigned)} série{volume.unassigned > 1 ? 's' : ''} d’exercices perso sans muscle : attribuer →
               </button>
             )}
-          </section>
+          </Block>
 
-          {/* Régularité */}
-          <Calendar sessions={mine} />
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            <div className={`rounded-2xl px-3.5 py-3 ${streak >= 2 ? 'bg-pink text-white' : 'bg-card'}`}>
-              <div className="font-num text-[24px] font-bold leading-tight">
-                {streak} <span className="text-[15px] font-semibold">sem.</span>
+          {/* 3. Régularité, et la décharge quand elle a du sens */}
+          <Calendar sessions={mine} streak={streak}>
+            {(deloadActive || stalling.length >= 2) && (
+              <div className={`mt-2 rounded-2xl px-4 py-3.5 ${deloadActive ? 'bg-card' : 'bg-pink/12'}`}>
+                <p className="text-[15px] font-semibold">
+                  {deloadActive ? `Semaine de décharge jusqu’au ${new Date(deloadUntil).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric' })}` : `${stalling.length} exercices stagnent`}
+                </p>
+                <p className="mt-0.5 text-[13px] leading-snug text-muted">
+                  {deloadActive ? 'Objectifs à −10 %, une série de moins. Le corps récupère, la force revient plus haut.' : 'Une semaine allégée (−10 %, une série de moins) relance souvent la progression.'}
+                </p>
+                <button
+                  onClick={deloadActive ? () => setDeload(null) : startDeload}
+                  className={`mt-3 h-11 w-full rounded-full text-[15px] font-semibold active:opacity-80 ${deloadActive ? 'bg-fill text-pink' : 'bg-pink text-white'}`}
+                >
+                  {deloadActive ? 'Arrêter la décharge' : 'Lancer une semaine de décharge'}
+                </button>
               </div>
-              <div className={`mt-0.5 text-[13px] ${streak >= 2 ? 'text-white/90' : 'text-muted'}`}>Semaines d’affilée au rendez-vous</div>
-            </div>
-            <div className="rounded-2xl bg-card px-3.5 py-3">
-              <div className="font-num text-[24px] font-bold leading-tight">{perWeek} / sem.</div>
-              <div className="mt-0.5 text-[13px] text-muted">{currentDone ? 'Objectif de la semaine atteint' : 'Ton objectif hebdo (planning)'}</div>
-            </div>
-          </div>
+            )}
+          </Calendar>
 
-          {/* Récupération : décharge proposée quand plusieurs exercices stagnent */}
-          {(deloadActive || stalling.length >= 2) && (
-            <div className={`mt-3 rounded-2xl px-4 py-3.5 ${deloadActive ? 'bg-fill' : 'bg-pink/12'}`}>
-              <p className="text-[15px] font-semibold">
-                {deloadActive ? `Semaine de décharge jusqu’au ${new Date(deloadUntil).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric' })}` : `${stalling.length} exercices stagnent`}
-              </p>
-              <p className="mt-0.5 text-[13px] leading-snug text-muted">
-                {deloadActive ? 'Objectifs à −10 %, une série de moins. Le corps récupère, la force revient plus haut.' : 'Une semaine allégée (−10 %, une série de moins) relance souvent la progression.'}
-              </p>
-              <button
-                onClick={deloadActive ? () => setDeload(null) : startDeload}
-                className={`mt-3 h-11 w-full rounded-full text-[15px] font-semibold active:opacity-80 ${deloadActive ? 'bg-card text-pink' : 'bg-pink text-white'}`}
-              >
-                {deloadActive ? 'Arrêter la décharge' : 'Lancer une semaine de décharge'}
-              </button>
+          {/* 4. Dernières séances */}
+          <Block title="Dernières séances">
+            <div className="overflow-hidden rounded-2xl bg-card">
+              {recent.map((s) => {
+                const { sets, minutes } = sessionStats(s);
+                return (
+                  <button key={s.id} onClick={() => setDetailId(s.id)} className="sep flex w-full items-center gap-3 py-3 pl-4 pr-3 text-left active:bg-fill">
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[17px] font-semibold">{s.name}</div>
+                      <div className="text-[15px] text-muted first-letter:uppercase">
+                        {ago(s.startedAt)} · {minutes} min
+                      </div>
+                    </div>
+                    <span className="shrink-0 font-num text-[15px] text-muted">
+                      {sets} série{sets > 1 ? 's' : ''}
+                    </span>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-faint" />
+                  </button>
+                );
+              })}
             </div>
-          )}
-
+            <p className="mt-2 px-4 text-[13px] text-muted">Touche une séance pour la revoir, corriger une série ou changer sa date.</p>
+          </Block>
         </>
       )}
-
-      {recent.length > 0 && (
-        <Group title="Dernières séances" footer="Touche une séance pour revoir et corriger chaque série. L’historique complet d’un exercice est dans sa carte.">
-          {recent.map((s) => {
-            const { sets, minutes } = sessionStats(s);
-            return (
-              <button key={s.id} onClick={() => setDetailId(s.id)} className="sep flex w-full items-center gap-3 py-3 pl-4 pr-3 text-left active:bg-fill">
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-[17px] font-semibold">{s.name}</div>
-                  <div className="text-[15px] text-muted first-letter:uppercase">
-                    {ago(s.startedAt)} · {minutes} min
-                  </div>
-                </div>
-                <span className="shrink-0 font-num text-[15px] text-muted">{sets} séries</span>
-                <ChevronRight className="h-4 w-4 shrink-0 text-faint" />
-              </button>
-            );
-          })}
-        </Group>
-      )}
-
-      {mine.length > 0 && <Strength sessions={mine} profile={profile} onSetup={() => setSettings(true)} />}
 
       {/* Attribuer un muscle aux exercices perso (pour le volume) */}
       <Sheet open={assigning} onClose={() => setAssigning(false)} title="Muscle de tes exercices perso">

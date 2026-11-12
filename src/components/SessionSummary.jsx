@@ -1,8 +1,11 @@
 import { useState } from 'react';
+import { moveSessionToDay } from '../lib/session';
 import { useStore } from '../lib/store';
 import { drawSummary } from '../lib/summaryImage';
 import { fmtInt, fmtSet } from '../lib/training';
+import DayPicker from './DayPicker';
 import { Check } from './Icons';
+import { useToast } from './Toast';
 
 const fmtDay = (ts) => new Date(ts).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
 
@@ -26,9 +29,11 @@ const Change = ({ pct }) =>
  * Durée, séries, records battus, tonnage effectif, et chaque exercice comparé à la dernière séance du même type.
  */
 export default function SessionSummary({ data, onClose }) {
-  const { state } = useStore();
+  const { state, saveSession } = useStore();
+  const notify = useToast();
   const [sharing, setSharing] = useState(false);
   if (!data) return null;
+  const session = state.sessions.find((x) => x.id === data.sessionId);
   const names = Object.fromEntries(state.exercises.map((e) => [e.id, e.name]));
   const { summary: s } = data;
 
@@ -44,6 +49,22 @@ export default function SessionSummary({ data, onClose }) {
           <p className="mt-1 text-[17px] font-semibold text-pink">
             {s.records} nouveau{s.records > 1 ? 'x' : ''} record{s.records > 1 ? 's' : ''} ★
           </p>
+        )}
+
+        {/* Oubliée hier ? On la range au bon jour : régularité, repos et objectifs restent justes */}
+        {session && (
+          <div className="mt-4">
+            <p className="mb-1.5 px-1 text-[13px] font-medium text-muted">Jour de la séance</p>
+            <DayPicker
+              value={session.startedAt}
+              onChange={(day) => {
+                const moved = moveSessionToDay(session, day);
+                if (moved === session) return;
+                saveSession(moved);
+                notify(`Séance rangée au ${new Date(moved.startedAt).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric' })}`, () => saveSession(session));
+              }}
+            />
+          </div>
         )}
 
         <div className="mt-5 grid grid-cols-2 gap-2">

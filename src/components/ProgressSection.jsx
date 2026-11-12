@@ -29,7 +29,7 @@ function Tile({ title, series, onClick }) {
   );
 }
 
-/** Grille « Force par exercice » de l'onglet Progrès : un graphique par exercice, la force avant tout. */
+/** Grille du bloc « Force » de l'onglet Progrès : un graphique par exercice, la force avant tout. */
 export default function ProgressSection({ onOpen }) {
   const { state } = useStore();
   const names = useMemo(() => Object.fromEntries(state.exercises.map((e) => [e.id, e.name])), [state.exercises]);
@@ -51,11 +51,7 @@ export default function ProgressSection({ onOpen }) {
   }, [mine]);
 
   return (
-    <section className="mt-6">
-      <div className="mb-2 flex items-baseline justify-between px-1">
-        <h2 className="text-[20px] font-bold tracking-tight">Force par exercice</h2>
-        {mine.length > 0 && <span className="text-[13px] text-muted">1RM estimé</span>}
-      </div>
+    <>
       {!mine.length ? (
         <div className="rounded-3xl bg-card p-5">
           <p className="text-[17px] font-semibold">Ta courbe commence ici</p>
@@ -75,6 +71,6 @@ export default function ProgressSection({ onOpen }) {
           )}
         </>
       )}
-    </section>
+    </>
   );
 }

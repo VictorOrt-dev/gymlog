@@ -31,13 +31,19 @@ Pendant la séance, tout est sur la carte de l'exercice :
 
 **À la fin, un récapitulatif** : durée, séries de travail, records battus, tonnage effectif, et chaque exercice comparé à ta dernière séance du même type. « Partager le récap » en fait une image à envoyer aux potes.
 
-**Onglet Progrès**, dans l'ordre : force par exercice, **volume par muscle** sur la semaine (½ série pour les muscles secondaires, repère 10–20 séries), puis **régularité** (calendrier des 12 dernières semaines, un carré rose par jour d'entraînement, et semaines d'affilée au rendez-vous) et proposition de **semaine de décharge** quand plusieurs exercices stagnent (−10 %, une série de moins), puis les dernières séances, et enfin ton **niveau de force** (Novice, Intermédiaire, Avancé, Élite) sur squat, développé couché, soulevé de terre et développé militaire : meilleur 1RM estimé ÷ poids de corps, avec la charge à viser pour le palier suivant. Poids de corps et repères hommes/femmes se règlent derrière l'avatar ; ce sont des ordres de grandeur, pas une note. Dans la vue d'un exercice : **records par reps**.
+**Onglet Progrès**, en 4 blocs : **Force** (une carte par exercice, puis ton **niveau** Novice → Élite sur squat, développé couché, soulevé de terre et développé militaire : meilleur 1RM estimé ÷ poids de corps, avec la charge à viser pour le palier suivant ; poids de corps et repères hommes/femmes derrière l'avatar, des ordres de grandeur, pas une note) · **Volume** par muscle (½ série pour les muscles secondaires, repère 10–20 ; le lundi, la semaine dernière s'affiche tant que la semaine est vide) · **Régularité** (calendrier des 12 dernières semaines, « 🔥 N semaines » en en-tête, et la **semaine de décharge** proposée quand plusieurs exercices stagnent) · **Dernières séances**. Sans aucune séance, un seul message clair remplace les blocs vides. Dans la vue d'un exercice : **records par reps**.
 
 **Sauvegarde en 1 tap** : le menu « Partager » du téléphone (iCloud Drive, Google Drive, AirDrop…), avec un rappel sur l'accueil quand des séances ne sont pas à l'abri. **Envoyer une séance type à un pote** : un lien, sans serveur ; il l'ajoute en un tap.
 
 **Une erreur de saisie ?** Dans le détail d'une séance passée, touche une série pour corriger sa charge, ses reps ou son RIR, la supprimer ou la passer en échauffement (avec « Annuler »). Objectifs, records et courbes se recalculent aussitôt.
 
 **Le bouton « ⋯ » d'un exercice** regroupe ce qu'on règle rarement : sa **fourchette de reps**, sa **note** (réglage machine, prise), l'ordre (**monter / descendre**), **remplacer** si la machine est prise (les séries déjà faites restent sur l'original), **superset** avec l'exercice suivant, ou retirer.
+
+**Premier lancement** : un seul écran de 20 secondes — ton prénom, tes jours d'entraînement, les séances que tu gardes (les autres disparaissent). Le planning se remplit tout seul (« Lun Push · Mer Pull · Ven Legs »). « J'ai déjà une sauvegarde » restaure un ancien téléphone.
+
+**Séance oubliée ?** Dans le récapitulatif de fin (ou le détail d'une séance passée) : « Aujourd'hui · Hier · Autre jour ». L'heure et la durée suivent ; régularité, repos et objectifs restent justes.
+
+**Un seul message par carte**, juste au-dessus de la saisie, selon une priorité stricte : le coach (objectif ajusté après une série) > l'alerte de stagnation > l'objectif du jour. La note de l'exercice est une ligne grise en bas de carte.
 
 Et aussi : sauvegarde à chaque tap (avec alerte immédiate si le stockage sature), écran qui reste allumé pendant la séance, fonctionne hors-ligne, export/import JSON (derrière l'avatar).
 
@@ -101,6 +107,12 @@ src/
 tests/                       Vitest : training, migrate, backup, session, records, coach2
 e2e/                         Playwright : parcours réels en format téléphone
 ```
+
+## Choix assumés
+
+- **Le chrono ne sonne pas écran verrouillé.** Sur iPhone, une app web ne peut pas réveiller le téléphone sans serveur de notifications, ce qui casserait le « 100 % local ». Réponse retenue : l'écran reste allumé pendant la séance, et la fin du repos fait clignoter tout l'écran.
+- **Stockage protégé** : l'app demande au système de ne pas vider ses données quand l'appareil manque de place (`navigator.storage.persist()`), en plus du rappel de sauvegarde.
+- **Écran de démarrage noir** (`scripts/splash.mjs` génère les images iOS) : pas de flash blanc à l'ouverture.
 
 ## Les indicateurs (pas de piège du tonnage brut)
 

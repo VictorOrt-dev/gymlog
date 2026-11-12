@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 import { serializeBackup } from './backup';
 import { applySupersets } from './session';
 import { norm } from './training';
-import { CUSTOM_GROUP, DEFAULT_REST, initialState, migrate, templateFromModel, uid } from './defaults';
+import { CUSTOM_GROUP, DEFAULT_REST, initialState, migrate, planFromChoice, templateFromModel, uid } from './defaults';
 
 const K_DATA = 'gymlog:data';
 const K_SESSIONS = 'gymlog:sessions'; // l'historique grossit : clé séparée, réécrite seulement quand il change
@@ -141,13 +141,28 @@ export function StoreProvider({ children }) {
         forProfile('plans', (plan = Array(7).fill(null)) => plan.map((x, i) => (i === day ? templateId : x))),
 
       /** Remplace une séance terminée (correction a posteriori). Tout ce qui en dérive se recalcule seul. */
-      saveSession: (session) => set((s) => ({ ...s, sessions: s.sessions.map((x) => (x.id === session.id ? session : x)) })),
+      saveSession: (session) =>
+        set((s) => ({ ...s, sessions: s.sessions.map((x) => (x.id === session.id ? session : x)).sort((a, b) => a.startedAt - b.startedAt) })), // trié : une date changée reste à sa place
       deleteSession: (id) => set((s) => ({ ...s, sessions: s.sessions.filter((x) => x.id !== id) })),
       restoreSession: (session) =>
         set((s) => ({ ...s, sessions: [...s.sessions, session].sort((a, b) => a.startedAt - b.startedAt) })),
 
       /** L'app est personnelle (une personne par téléphone) : seul le prénom se règle. */
       renameProfile: (name) => set((s) => ({ ...s, profiles: s.profiles.map((p) => (p.id === s.profileId ? { ...p, name } : p)) })),
+      /** Premier lancement : prénom, jours d'entraînement, séances gardées (les autres disparaissent). */
+      completeOnboarding: ({ name, days, keep }) =>
+        set((s) => {
+          const kept = new Set(keep);
+          const templates = s.templates.filter((t) => t.profileId !== s.profileId || kept.has(t.id));
+          const order = templates.filter((t) => t.profileId === s.profileId && kept.has(t.id)).map((t) => t.id);
+          return {
+            ...s,
+            onboarded: true,
+            templates,
+            profiles: s.profiles.map((p) => (p.id === s.profileId ? { ...p, name: name.trim() || p.name } : p)),
+            plans: { ...s.plans, [s.profileId]: planFromChoice(days, order) },
+          };
+        }),
       /** Poids de corps (kg) et sexe ('h' | 'f') : uniquement pour situer sa force (repères ramenés au poids). */
       setProfileInfo: (patch) => set((s) => ({ ...s, profiles: s.profiles.map((p) => (p.id === s.profileId ? { ...p, ...patch } : p)) })),
 

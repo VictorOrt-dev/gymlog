@@ -20,7 +20,7 @@ test('corriger une séance passée recalcule l’objectif', async ({ page }) => 
 test('volume par muscle et records par reps', async ({ page }) => {
   await page.getByRole('navigation').getByText('Progrès').click();
   await page.getByRole('radio', { name: 'Semaine dernière' }).click();
-  const vol = page.locator('section').filter({ hasText: 'Volume par muscle' });
+  const vol = page.locator('section').filter({ hasText: 'séries / semaine' });
   await expect(vol).toContainText('Pectoraux');
   await expect(vol).toContainText('Triceps'); // muscle secondaire du développé couché
   await page.getByRole('button', { name: /^Développé couché/ }).first().click();

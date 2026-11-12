@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { editSessionSet } from '../lib/session';
+import { editSessionSet, moveSessionToDay } from '../lib/session';
 import { useStore } from '../lib/store';
 import { fmtInt, fmtSet, rirText, tonnage, work } from '../lib/training';
+import DayPicker from './DayPicker';
 import Sheet from './Sheet';
 import Stepper from './Stepper';
 import { useToast } from './Toast';
@@ -124,6 +125,17 @@ export default function SessionDetail({ session, onClose, onDelete }) {
         {when.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
       </p>
       <h2 className="text-[28px] font-bold leading-tight tracking-tight">{session.name}</h2>
+
+      <DayPicker
+        className="mt-4"
+        value={session.startedAt}
+        onChange={(day) => {
+          const moved = moveSessionToDay(session, day);
+          if (moved === session) return;
+          saveSession(moved);
+          notify('Date changée', () => saveSession(session));
+        }}
+      />
 
       <div className="mt-4 grid grid-cols-3 gap-2">
         <Stat label="Durée" value={`${minutes} min`} />

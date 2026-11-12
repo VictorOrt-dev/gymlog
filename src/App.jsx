@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Home from './components/Home';
+import Onboarding from './components/Onboarding';
 import ProgressTab from './components/ProgressTab';
 import TabBar from './components/TabBar';
 import SessionLogger from './components/SessionLogger';
@@ -33,12 +34,14 @@ function Shell() {
     window.scrollTo(0, 0);
   }, [inSession, tab]);
 
-  const finished = ({ summary: s }) => {
+  const finished = ({ summary: s, sessionId }) => {
     setInSession(false);
     setTab('train');
     if (!s) return notify('Séance vide abandonnée');
-    setSummary({ summary: s });
+    setSummary({ summary: s, sessionId });
   };
+
+  if (!state.onboarded) return <Onboarding />; // premier lancement : un seul écran, puis l'app
 
   return (
     <>

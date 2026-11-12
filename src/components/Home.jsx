@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { MODELS, uid } from '../lib/defaults';
-import { nextPlanned, weekStreak } from '../lib/stats';
+import { nextPlanned } from '../lib/stats';
 import { useStore } from '../lib/store';
 import { ago } from '../lib/training';
 import SettingsSheet, { isExportStale } from './SettingsSheet';
@@ -60,7 +60,6 @@ export default function Home({ onOpenSession }) {
   const todayTpl = tplById[plan[today.i]];
   const doneCount = week.filter((d) => d.done).length;
   const plannedCount = plan.filter((x) => tplById[x]).length;
-  const { streak } = weekStreak(mine, plannedCount || 3);
   const next = nextPlanned(plan, new Set(templates.map((t) => t.id)), today.i);
   const nextTpl = next && tplById[next.templateId];
   const nextWhen = next && (next.label === 'demain' ? 'Demain' : DAY_NAMES[next.day]);
@@ -167,19 +166,13 @@ export default function Home({ onOpenSession }) {
       )}
 
       {/* 2. La semaine : fréquence et jours off d'un coup d'œil */}
+      {/* iPhone SE : la carte gagne 10 px de chaque côté pour que chaque jour garde 44 px sous le doigt */}
       <Group
+        className="mt-9 max-[359px]:-mx-2.5"
         title="Cette semaine"
-        action={
-          // Régularité : affichée seulement quand elle existe — jamais de « 0 » culpabilisant
-          streak >= 1 && (
-            <span className="rounded-full bg-pink/12 px-2.5 py-1 text-[13px] font-semibold text-pink" aria-label={`${streak} semaine${streak > 1 ? 's' : ''} d’affilée au rendez-vous`}>
-              🔥 {streak} semaine{streak > 1 ? 's' : ''}
-            </span>
-          )
-        }
         footer={`${doneCount} séance${doneCount > 1 ? 's' : ''} sur ${plannedCount}${deloadActive ? ' · semaine de décharge' : ''} · touche un jour pour changer sa séance`}
       >
-        <div className="grid grid-cols-7 px-1 py-4">
+        <div className="grid grid-cols-7 px-1 py-4 max-[359px]:px-0">
           {week.map((d) => {
             const tpl = tplById[plan[d.i]];
             // Pas de mode « Modifier » : un tap sur un jour ouvre directement son choix de séance.
@@ -220,6 +213,9 @@ export default function Home({ onOpenSession }) {
             </div>
           </SwipeRow>
         ))}
+        {!templates.length && (
+          <p className="px-4 pb-1 pt-3.5 text-[15px] leading-snug text-muted">Aucune séance type. Crée la tienne, ou pars d’un modèle : elle sera prête en un tap chaque semaine.</p>
+        )}
         <button onClick={() => setCreating(true)} className="sep flex h-12 w-full items-center gap-2 px-4 text-[17px] text-pink active:opacity-50">
           <Plus className="h-5 w-5" /> Nouvelle séance
         </button>

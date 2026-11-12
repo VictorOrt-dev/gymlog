@@ -150,6 +150,15 @@ export default function ExerciseCard({ exercise, item, prev, history = [], note,
   const entryIsRecord = editing == null && mode === 'work' && !!recordOf({ ...entry }, recordBook([...history, ...main(sets)]));
   const nextRef = prevSets[nM];
   const rowsWanted = deload ? Math.max(1, prevSets.length - 1) : prevSets.length; // décharge : une série de moins
+  const softGoal = goal && (goal.mode === 'low' || goal.mode === 'deload');
+  const message =
+    editing != null || mode !== 'work'
+      ? null
+      : nM > 0
+        ? nextTarget?.why && { title: `Série ${nM + 1} ajustée`, text: nextTarget.why, t: nextTarget, accent: false }
+        : stalled && !deload
+          ? { title: 'Ça stagne depuis 3 séances', text: 'Allège de 10 % ou change de variante pour relancer.', t: goal, accent: false }
+          : goal && { title: 'Objectif du jour', text: goal.why, t: goal, accent: !softGoal };
   const editMode = editing != null ? modeOf(sets[editing]) : null;
   const editingLabel = editing == null ? null : editMode === 'wu' ? 'Corriger l’échauffement' : editMode === 'drop' ? 'Corriger le drop set' : `Corriger la série ${mains.findIndex((x) => x.i === editing) + 1}`;
 
@@ -205,34 +214,6 @@ export default function ExerciseCard({ exercise, item, prev, history = [], note,
             )}
           </div>
 
-          {note && (
-            <button onClick={onMenu} className="mb-1 flex min-h-11 w-full items-center gap-2 rounded-xl px-1 text-left text-[15px] text-white/85 active:bg-fill">
-              <span aria-hidden="true" className="text-muted">✎</span>
-              <span className="min-w-0 flex-1">{note}</span>
-            </button>
-          )}
-
-          {/* Stagnation : un conseil discret, avant de commencer l'exercice */}
-          {stalled && nM === 0 && mode === 'work' && !deload && (
-            <div className="mb-3 rounded-2xl bg-fill px-3.5 py-2.5 text-[13px] leading-snug">
-              <span className="font-semibold text-white">Ça stagne depuis 3 séances.</span>{' '}
-              <span className="text-muted">Fais une séance allégée (−10 % de charge) ou change de variante pour relancer.</span>
-            </div>
-          )}
-
-          {/* Objectif du jour, avant la 1re série principale */}
-          {nM === 0 && goal && mode === 'work' && editing == null && (
-            <div className={`mb-3 flex items-center justify-between gap-3 rounded-2xl px-3.5 py-2.5 ${goal.mode === 'low' || goal.mode === 'deload' ? 'bg-fill' : 'bg-pink/12'}`}>
-              <div className="min-w-0">
-                <div className={`text-[13px] font-semibold ${goal.mode === 'low' || goal.mode === 'deload' ? 'text-white' : 'text-pink'}`}>Objectif du jour</div>
-                <div className="text-[13px] leading-snug text-muted">{goal.why}</div>
-              </div>
-              <div className="shrink-0 font-num text-[20px] font-bold tabular-nums">
-                {fmtKg(goal.w)} × {goal.r}
-              </div>
-            </div>
-          )}
-
           {(warmups.length > 0 || mode === 'wu') && <ExtraSets label="Échauffement" sets={warmups} editing={editing} flash={flash} onEdit={edit} emptyText="aucun pour l’instant" />}
 
           <SetTable
@@ -248,19 +229,26 @@ export default function ExerciseCard({ exercise, item, prev, history = [], note,
             onDelete={remove}
           />
 
-          {/* Coach en direct : l'objectif de la prochaine série s'adapte à la précédente */}
-          {nM > 0 && nextTarget?.why && editing == null && mode === 'work' && (
-            <p className="mt-2 flex items-baseline justify-between gap-3 rounded-xl bg-fill px-3 py-2 text-[13px] leading-snug" role="status">
-              <span className="min-w-0 text-white/85">{nextTarget.why}</span>
-              <span className="shrink-0 font-num text-[15px] font-semibold tabular-nums">
-                {fmtKg(nextTarget.w)} × {nextTarget.r}
-              </span>
-            </p>
-          )}
+
 
           {(drops.length > 0 || mode === 'drop') && (
             <div className="mt-1">
               <ExtraSets label="Drop sets" sets={drops} editing={editing} flash={flash} onEdit={edit} emptyText="−20 %, enchaîné sans repos" />
+            </div>
+          )}
+
+          {/* UN seul message, juste au-dessus de la saisie : coach > stagnation > objectif du jour */}
+          {message && (
+            <div className={`mt-2 flex items-center justify-between gap-3 rounded-2xl px-3.5 py-2.5 ${message.accent ? 'bg-pink/12' : 'bg-fill'}`} role="status">
+              <div className="min-w-0">
+                <div className={`text-[13px] font-semibold ${message.accent ? 'text-pink' : 'text-white'}`}>{message.title}</div>
+                <div className="text-[13px] leading-snug text-muted">{message.text}</div>
+              </div>
+              {message.t && (
+                <div className="shrink-0 font-num text-[20px] font-bold tabular-nums">
+                  {fmtKg(message.t.w)} × {message.t.r}
+                </div>
+              )}
             </div>
           )}
 
@@ -285,6 +273,14 @@ export default function ExerciseCard({ exercise, item, prev, history = [], note,
               )
             }
           />
+
+          {/* La note : une ligne grise en bas de carte (touche pour la modifier) */}
+          {note && (
+            <button onClick={onMenu} className="mt-2 flex min-h-11 w-full items-center gap-2 px-1 text-left text-[13px] text-muted active:opacity-60">
+              <span aria-hidden="true">✎</span>
+              <span className="min-w-0 flex-1 truncate">{note}</span>
+            </button>
+          )}
         </div>
       )}
 

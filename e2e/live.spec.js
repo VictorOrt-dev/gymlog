@@ -6,6 +6,10 @@ test.beforeEach(async ({ page }) => seed(page));
 /** Glissement horizontal au doigt (événements pointeur), comme sur iPhone. */
 async function swipeLeft(page, locator) {
   await locator.evaluate((el) => el.scrollIntoView({ block: 'center' })); // ni sous l'en-tête collant, ni sous le chrono
+  // Attendre la fin de tout défilement doux en cours (cadrage automatique après une série) avant de mesurer
+  await page.waitForFunction(() => new Promise((r) => { const y = scrollY; setTimeout(() => r(scrollY === y), 120); }));
+  await locator.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+  await page.waitForFunction(() => new Promise((r) => { const y = scrollY; setTimeout(() => r(scrollY === y), 120); }));
   const b = await locator.boundingBox();
   const y = b.y + b.height / 2;
   await page.mouse.move(b.x + b.width - 10, y);
@@ -27,6 +31,7 @@ test('séance : progression, objectif ajusté après une série ratée, glisser 
   await expect(header).toContainText('1/6 séries');
   await expect(page.getByRole('progressbar', { name: 'Séries validées' })).toHaveAttribute('aria-valuenow', '1');
   await expect(card.getByText('Série 1 manquée')).toBeVisible();
+  await expect(card.getByText('Objectif du jour')).toHaveCount(0); // un seul message à la fois : le coach l'emporte
   await expect(card).toContainText('77,5 kg × 5'); // −5 % arrondi au cran, mêmes reps visées
   await page.getByRole('button', { name: 'Arrêter le chrono' }).click();
   // Glisser la série vers la gauche : supprimée, annulable
@@ -38,7 +43,7 @@ test('séance : progression, objectif ajusté après une série ratée, glisser 
   await expect(header).toContainText('1/6 séries');
 });
 
-test('accueil : jour de repos → prochaine séance à avancer d’un tap ; série de semaines', async ({ page }) => {
+test('accueil : jour de repos → prochaine séance à avancer d’un tap', async ({ page }) => {
   await page.evaluate(() => {
     const d = JSON.parse(localStorage.getItem('gymlog:data'));
     const i = (new Date().getDay() + 6) % 7;
@@ -47,7 +52,6 @@ test('accueil : jour de repos → prochaine séance à avancer d’un tap ; sér
     localStorage.setItem('gymlog:data', JSON.stringify(d));
   });
   await page.reload();
-  await expect(page.getByText('🔥 5 semaines')).toBeVisible(); // 5 semaines d'affilée au rendez-vous dans les données de départ
   await expect(page.getByText(/Repos aujourd’hui/)).toBeVisible();
   await expect(page.locator('main, body').first()).toContainText('Pull · Demain');
   await page.getByRole('button', { name: 'La faire maintenant' }).click();

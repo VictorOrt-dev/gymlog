@@ -100,3 +100,23 @@ function clean(s) {
   if (out.t !== 'drop') delete out.t;
   return out;
 }
+
+const dayStart = (ts) => new Date(ts).setHours(0, 0, 0, 0);
+
+/**
+ * Déplace une séance sur un autre jour (« j'ai oublié de noter hier ») : l'heure, la durée
+ * et l'horodatage de chaque série suivent. Le jour se décale en jours calendaires (changement d'heure compris).
+ */
+export function moveSessionToDay(session, dayTs) {
+  const from = new Date(session.startedAt);
+  const to = new Date(dayTs);
+  const target = new Date(to.getFullYear(), to.getMonth(), to.getDate(), from.getHours(), from.getMinutes(), from.getSeconds(), from.getMilliseconds()).getTime();
+  const delta = target - session.startedAt;
+  if (!delta || dayStart(target) === dayStart(session.startedAt)) return session;
+  return {
+    ...session,
+    startedAt: target,
+    endedAt: session.endedAt == null ? session.endedAt : session.endedAt + delta,
+    items: session.items.map((it) => ({ ...it, sets: it.sets.map((s) => (s.at == null ? s : { ...s, at: s.at + delta })) })),
+  };
+}
