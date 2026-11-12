@@ -33,7 +33,7 @@ const Chip = ({ active, children, ...props }) => (
  * Les échauffements sont notés à part et n'entrent dans aucun calcul (À battre, records, courbes).
  * L'objectif suit une double progression par fourchette : les champs sont pré-remplis, 1 tap suffit.
  */
-export default function ExerciseCard({ exercise, item, prev, note, stalled, open, onToggle, onAdd, onUpdate, onDelete, onRemove, onRange, onNote }) {
+export default function ExerciseCard({ exercise, item, prev, note, stalled, open, onToggle, onMenu, onAdd, onUpdate, onDelete, onRange, onNote }) {
   const sets = item.sets;
   const indexed = sets.map((s, i) => ({ s, i }));
   const warmups = indexed.filter((x) => x.s.wu);
@@ -66,7 +66,7 @@ export default function ExerciseCard({ exercise, item, prev, note, stalled, open
     const card = ref.current;
     const btn = validateRef.current;
     if (!card || !btn) return;
-    const header = 64 + (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--banner-h')) || 0);
+    const header = document.querySelector('header')?.getBoundingClientRect().bottom ?? 64; // en-tête + barre binôme + alerte éventuelle
     const bottomSafe = window.innerHeight - 92; // capsule du chrono + marge
     const top = window.scrollY + card.getBoundingClientRect().top - header - 8;
     const needed = window.scrollY + btn.getBoundingClientRect().bottom - bottomSafe;
@@ -146,8 +146,9 @@ export default function ExerciseCard({ exercise, item, prev, note, stalled, open
 
   return (
     <section ref={ref} className="scroll-mt-20 overflow-hidden rounded-3xl bg-card">
-      {/* En-tête : toujours tapable pour ouvrir / fermer */}
-      <button onClick={onToggle} aria-expanded={open} className="flex min-h-14 w-full items-center gap-3 px-3.5 py-3 text-left">
+      {/* En-tête : toujours tapable pour ouvrir / fermer ; « ⋯ » pour organiser quand la carte est ouverte */}
+      <div className="flex items-center">
+      <button onClick={onToggle} aria-expanded={open} className="flex min-h-14 min-w-0 flex-1 items-center gap-3 py-3 pl-3.5 pr-2 text-left">
         <div className="min-w-0 flex-1">
           <div className={`truncate tracking-tight ${open ? 'text-[22px] font-bold' : 'text-[17px] font-semibold'}`}>{exercise.name}</div>
           {!open && (
@@ -157,11 +158,21 @@ export default function ExerciseCard({ exercise, item, prev, note, stalled, open
           )}
         </div>
         {nW > 0 && !open && (
-          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-pink text-white">
+          <span className="mr-1.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-pink text-white">
             <Check className="h-4 w-4" strokeWidth={3} />
           </span>
         )}
       </button>
+      {open && (
+        <button onClick={onMenu} aria-label={`Organiser ${exercise.name} : déplacer, remplacer, retirer`} className="mr-2 grid h-11 w-11 shrink-0 place-items-center rounded-full text-muted active:bg-fill">
+          <svg viewBox="0 0 24 24" className="h-6 w-6" fill="currentColor" aria-hidden="true">
+            <circle cx="5" cy="12" r="2" />
+            <circle cx="12" cy="12" r="2" />
+            <circle cx="19" cy="12" r="2" />
+          </svg>
+        </button>
+      )}
+      </div>
 
       {open && (
         <div className="@container px-3.5 pb-4">
@@ -361,11 +372,6 @@ export default function ExerciseCard({ exercise, item, prev, note, stalled, open
             </div>
           )}
 
-          {sets.length === 0 && (
-            <button type="button" onClick={onRemove} className="mt-1 h-11 w-full text-[15px] text-muted active:opacity-50">
-              Retirer cet exercice
-            </button>
-          )}
         </div>
       )}
 

@@ -1,4 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { serializeBackup } from './backup';
+import { withAthlete } from './session';
 import { CUSTOM_GROUP, DEFAULT_REST, initialState, migrate, seedProfile, templateFromModel, uid } from './defaults';
 
 const K_DATA = 'gymlog:data';
@@ -150,8 +152,21 @@ export function StoreProvider({ children }) {
         }),
       switchProfile: (id) => set((s) => ({ ...s, profileId: id })),
 
+      /**
+       * Binôme : passe à un autre athlète en pleine séance, sans rien quitter.
+       * S'il n'a pas de séance en cours, il reçoit la même (mêmes exercices, dans le même ordre, sans séries).
+       */
+      switchAthlete: (pid) => set((s) => withAthlete(s, pid)),
+      /** Ajoute un pote et le fait entrer directement dans la séance en cours. */
+      addAthlete: (name) =>
+        set((s) => {
+          const { profile, templates, plan } = seedProfile(name);
+          const next = { ...s, profiles: [...s.profiles, profile], templates: [...s.templates, ...templates], plans: { ...s.plans, [profile.id]: plan } };
+          return withAthlete(next, profile.id);
+        }),
+
       exportData: () => {
-        const blob = new Blob([JSON.stringify(current.current)], { type: 'application/json' });
+        const blob = new Blob([serializeBackup(current.current)], { type: 'application/json' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
         a.download = `gymlog-${new Date().toISOString().slice(0, 10)}.json`;
@@ -159,7 +174,8 @@ export function StoreProvider({ children }) {
         setTimeout(() => URL.revokeObjectURL(a.href), 1000);
         set((s) => ({ ...s, lastExport: Date.now() }));
       },
-      replaceAll: (data) => set(migrate(data)),
+      /** `data` doit venir de parseBackup (validé + migré). */
+      replaceAll: (data) => set(data),
     };
   }, []);
 

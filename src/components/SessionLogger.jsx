@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { DEFAULT_REST } from '../lib/defaults';
 import { useNow, useRestTimer, useWakeLock } from '../lib/hooks';
+import { moveItem, removeItem, replaceItem } from '../lib/session';
 import { useStore } from '../lib/store';
 import { bestOf, e1rm, isStalling, lastPerformances, mmss, seriesFor, work } from '../lib/training';
 import ExerciseCard from './ExerciseCard';
 import ExercisePicker from './ExercisePicker';
 import RestTimer from './RestTimer';
-import { Back, Plus } from './Icons';
+import Sheet from './Sheet';
+import { Back, Plus, Up } from './Icons';
 
 /** Isolé pour que seul ce texte se redessine chaque seconde, pas toute la séance. */
 function Elapsed({ since }) {
@@ -14,30 +16,42 @@ function Elapsed({ since }) {
   return mmss((now - since) / 1000);
 }
 
+const firstIncomplete = (items) => Math.max(0, items.findIndex((it) => !it.sets.length));
+
 /**
  * L'écran où on passe 95 % du temps.
  * Règles : un seul exercice ouvert à la fois, valider une série lance le repos tout seul,
  * tout est sauvegardé à chaque tap (verrouiller le téléphone ou recharger ne perd rien).
+ * En binôme : un tap sur l'avatar du pote, et on passe sur SA séance (son exercice ouvert, son chrono).
  */
 export default function SessionLogger({ onExit, onFinished }) {
-  const { state, setDraft, finishSession, setExerciseRest, setExerciseRange, setNote } = useStore();
-  const draft = state.drafts[state.profileId];
+  const { state, setDraft, finishSession, setExerciseRest, setExerciseRange, setNote, switchAthlete, addAthlete } = useStore();
+  const pid = state.profileId;
+  const draft = state.drafts[pid];
   const items = draft?.items ?? [];
 
   const byId = useMemo(() => Object.fromEntries(state.exercises.map((e) => [e.id, e])), [state.exercises]);
-  const last = useMemo(() => lastPerformances(state.sessions, state.profileId), [state.sessions, state.profileId]);
-  const notes = state.notes?.[state.profileId] ?? {};
+  const last = useMemo(() => lastPerformances(state.sessions, pid), [state.sessions, pid]);
+  const notes = state.notes?.[pid] ?? {};
   // Stagnation : meilleure série (1RM estimé) qui ne progresse plus depuis 3 séances
   const stalled = useMemo(() => {
-    const mine = state.sessions.filter((s) => s.profileId === state.profileId);
-    return Object.fromEntries((draft?.items ?? []).map((it) => [it.exerciseId, isStalling(seriesFor(mine, it.exerciseId).points.map((p) => p.value))]));
-  }, [state.sessions, state.profileId, draft?.items.length]); // eslint-disable-line react-hooks/exhaustive-deps
+    const mine = state.sessions.filter((s) => s.profileId === pid);
+    return Object.fromEntries(items.map((it) => [it.exerciseId, isStalling(seriesFor(mine, it.exerciseId).points.map((p) => p.value))]));
+  }, [state.sessions, pid, items.map((it) => it.exerciseId).join()]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const [open, setOpen] = useState(() => Math.max(0, items.findIndex((it) => !it.sets.length)));
-  const [picking, setPicking] = useState(false);
+  const [open, setOpenState] = useState(() => draft?.open ?? firstIncomplete(items));
+  const [picking, setPicking] = useState(null); // null | 'add' | index de l'exercice à remplacer
+  const [menu, setMenu] = useState(null); // index de l'exercice dont on organise la place
   const [confirming, setConfirming] = useState(false);
-  const timer = useRestTimer();
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [newMate, setNewMate] = useState(null); // non-null : saisie du prénom d'un pote
+  const timer = useRestTimer(pid);
   useWakeLock(true);
+
+  // L'exercice ouvert est écrit dans la séance dès l'arrivée : en binôme, chacun retrouve exactement sa place.
+  useEffect(() => {
+    if (draft && draft.open == null) setDraft((d) => ({ ...d, open }));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // « Terminer » demande un 2e tap dans les 3 s : zéro modale, zéro fin de séance accidentelle.
   useEffect(() => {
@@ -52,8 +66,32 @@ export default function SessionLogger({ onExit, onFinished }) {
   const total = items.reduce((n, it) => n + work(it.sets).length, 0); // séries de travail (échauffements exclus)
   const any = items.some((it) => it.sets.length);
   const restFor = (ex) => ex?.rest ?? DEFAULT_REST;
+  const nameOf = (id) => byId[id]?.name ?? 'Exercice supprimé';
 
+  /** L'exercice ouvert est mémorisé dans la séance : en binôme, chacun retrouve sa place. */
+  const setOpen = (i) => {
+    setOpenState(i);
+    setDraft((d) => ({ ...d, open: i }));
+  };
   const patchSets = (i, fn) => setDraft((d) => ({ ...d, items: d.items.map((it, j) => (j === i ? { ...it, sets: fn(it.sets) } : it)) }));
+
+  const move = (i, dir) => {
+    const next = moveItem({ ...draft, open }, i, dir);
+    setDraft(() => next);
+    setOpenState(next.open);
+    setMenu(Math.min(items.length - 1, Math.max(0, i + dir))); // le menu suit l'exercice
+  };
+  const replace = (i, id) => {
+    const next = replaceItem({ ...draft, open }, i, id);
+    setDraft(() => next);
+    setOpenState(next.open);
+  };
+  const remove = (i) => {
+    setDraft((d) => removeItem(d, i));
+    setOpenState(-1);
+    setMenu(null);
+    setConfirmRemove(false);
+  };
 
   const finish = () => {
     if (!confirming) return setConfirming(true);
@@ -63,6 +101,9 @@ export default function SessionLogger({ onExit, onFinished }) {
     finishSession();
     onFinished({ sets: total, any, records });
   };
+
+  const menuItem = menu != null ? items[menu] : null;
+  const menuDone = menuItem ? work(menuItem.sets).length : 0;
 
   return (
     <div className="min-h-dvh pb-32">
@@ -85,6 +126,31 @@ export default function SessionLogger({ onExit, onFinished }) {
             {confirming ? (any ? 'Confirmer' : 'Abandonner') : 'Terminer'}
           </button>
         </div>
+
+        {/* Binôme : un tap sur un avatar = on passe sur sa séance */}
+        <div className="mx-auto flex max-w-md gap-2 overflow-x-auto px-3 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Athlète">
+          {state.profiles.map((p) => {
+            const d = state.drafts[p.id];
+            const active = p.id === pid;
+            const done = d ? d.items.reduce((n, it) => n + work(it.sets).length, 0) : null;
+            return (
+              <button
+                key={p.id}
+                role="tab"
+                aria-selected={active}
+                onClick={() => switchAthlete(p.id)}
+                className={`flex h-11 shrink-0 items-center gap-2 rounded-full pl-1.5 pr-4 transition-colors ${active ? 'bg-pink text-white' : 'bg-fill text-white/85 active:bg-fill-hi'}`}
+              >
+                <span className={`grid h-8 w-8 place-items-center rounded-full text-[15px] font-semibold ${active ? 'bg-black/20' : 'bg-fill-hi'}`}>{(p.name || '?')[0].toUpperCase()}</span>
+                <span className="max-w-28 truncate text-[15px] font-semibold">{p.name}</span>
+                {done != null && <span className="font-num text-[13px] tabular-nums opacity-75">{done}</span>}
+              </button>
+            );
+          })}
+          <button onClick={() => setNewMate('')} aria-label="Ajouter un pote à la séance" className="flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-fill px-4 text-[15px] font-semibold text-pink active:bg-fill-hi">
+            <Plus className="h-4 w-4" /> Pote
+          </button>
+        </div>
       </header>
 
       <main className="mx-auto max-w-md space-y-3 px-3 pt-3">
@@ -100,21 +166,21 @@ export default function SessionLogger({ onExit, onFinished }) {
             onNote={(text) => setNote(it.exerciseId, text)}
             open={open === i}
             onToggle={() => setOpen(open === i ? -1 : i)}
+            onMenu={() => {
+              setConfirmRemove(false);
+              setMenu(i);
+            }}
             onAdd={(set) => {
               patchSets(i, (s) => [...s, { ...set, at: Date.now() }]);
               timer.start(restFor(byId[it.exerciseId])); // le repos démarre tout seul
             }}
             onUpdate={(k, set) => patchSets(i, (s) => s.map((x, j) => (j === k ? { ...x, ...set } : x)))}
             onDelete={(k) => patchSets(i, (s) => s.filter((_, j) => j !== k))}
-            onRemove={() => {
-              setDraft((d) => ({ ...d, items: d.items.filter((_, j) => j !== i) }));
-              setOpen(-1);
-            }}
           />
         ))}
 
         <button
-          onClick={() => setPicking(true)}
+          onClick={() => setPicking('add')}
           className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-card text-[17px] font-medium text-pink active:opacity-60"
         >
           <Plus className="h-5 w-5" /> Ajouter un exercice
@@ -130,13 +196,87 @@ export default function SessionLogger({ onExit, onFinished }) {
         }}
       />
 
+      {/* Organiser un exercice : sa place, le remplacer, le retirer */}
+      <Sheet open={menuItem != null} onClose={() => setMenu(null)} title={menuItem ? nameOf(menuItem.exerciseId) : ''}>
+        {menuItem && (
+          <>
+            <p className="-mt-2 mb-4 text-[15px] text-muted">
+              Exercice {menu + 1} sur {items.length}
+              {menuDone > 0 && ` · ${menuDone} série${menuDone > 1 ? 's' : ''} faite${menuDone > 1 ? 's' : ''}`}
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => move(menu, -1)}
+                disabled={menu === 0}
+                className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-fill text-[17px] font-semibold active:bg-fill-hi disabled:opacity-30"
+              >
+                <Up className="h-5 w-5" /> Monter
+              </button>
+              <button
+                onClick={() => move(menu, 1)}
+                disabled={menu === items.length - 1}
+                className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-fill text-[17px] font-semibold active:bg-fill-hi disabled:opacity-30"
+              >
+                <Up className="h-5 w-5 rotate-180" /> Descendre
+              </button>
+            </div>
+            <button
+              onClick={() => {
+                setPicking(menu);
+                setMenu(null);
+              }}
+              className="mt-2 h-14 w-full rounded-2xl bg-pink text-[17px] font-semibold text-white active:opacity-80"
+            >
+              Remplacer (machine prise)
+            </button>
+            <p className="mt-2 px-1 text-[13px] leading-snug text-muted">
+              {menuItem.sets.length
+                ? 'Les séries déjà faites restent enregistrées sur cet exercice ; le remplaçant s’insère juste après.'
+                : 'Le remplaçant prend sa place dans la séance. Ton programme ne change pas.'}
+            </p>
+            <button
+              onClick={() => (menuItem.sets.length && !confirmRemove ? setConfirmRemove(true) : remove(menu))}
+              className={`mt-4 h-12 w-full rounded-full text-[17px] ${confirmRemove ? 'bg-pink font-semibold text-white' : 'text-pink active:opacity-50'}`}
+            >
+              {confirmRemove ? `Retirer et perdre ${menuItem.sets.length} série${menuItem.sets.length > 1 ? 's' : ''}` : 'Retirer de la séance'}
+            </button>
+          </>
+        )}
+      </Sheet>
+
+      {/* Nouveau pote : il entre directement dans la séance, avec les mêmes exercices */}
+      <Sheet open={newMate != null} onClose={() => setNewMate(null)} title="Ajouter un pote">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!newMate?.trim()) return;
+            addAthlete(newMate.trim());
+            setNewMate(null);
+          }}
+          className="flex gap-2"
+        >
+          <input
+            autoFocus
+            value={newMate ?? ''}
+            onChange={(e) => setNewMate(e.target.value)}
+            placeholder="Prénom"
+            enterKeyHint="go"
+            className="h-12 min-w-0 flex-1 rounded-xl bg-fill px-4 text-[17px] outline-none placeholder:text-muted"
+          />
+          <button className="h-12 rounded-full bg-pink px-5 text-[17px] font-semibold text-white active:opacity-80">Ajouter</button>
+        </form>
+        <p className="mt-3 px-1 text-[13px] leading-snug text-muted">Il reçoit la même séance, dans le même ordre. Chacun garde ses charges, son historique et son chrono.</p>
+      </Sheet>
+
       <ExercisePicker
-        open={picking}
-        onClose={() => setPicking(false)}
+        open={picking != null}
+        onClose={() => setPicking(null)}
         exclude={items.map((it) => it.exerciseId)}
         onPick={(id) => {
-          setDraft((d) => ({ ...d, items: [...d.items, { exerciseId: id, sets: [] }] }));
-          setOpen(items.length);
+          if (picking === 'add') {
+            setDraft((d) => ({ ...d, items: [...d.items, { exerciseId: id, sets: [] }], open: items.length }));
+            setOpenState(items.length);
+          } else replace(picking, id);
         }}
       />
     </div>

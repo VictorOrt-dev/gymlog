@@ -70,22 +70,24 @@ function ring() {
   });
 }
 
-function readTimer() {
+function readTimer(key) {
   try {
-    const t = JSON.parse(localStorage.getItem(K_TIMER));
+    const t = JSON.parse(localStorage.getItem(key));
     return t && t.endAt > Date.now() - 10 * 60e3 ? t : null;
   } catch {
     return null;
   }
 }
 
-export function useRestTimer() {
-  const [state, setState] = useState(readTimer); // { endAt, total, rang }
+/** Un chrono par athlète : en binôme, chacun garde son propre repos. */
+export function useRestTimer(athleteId = '') {
+  const key = athleteId ? `${K_TIMER}:${athleteId}` : K_TIMER;
+  const [state, setState] = useState(() => readTimer(key)); // { endAt, total, rang }
 
   useEffect(() => {
     try {
-      if (state) localStorage.setItem(K_TIMER, JSON.stringify(state));
-      else localStorage.removeItem(K_TIMER);
+      if (state) localStorage.setItem(key, JSON.stringify(state));
+      else localStorage.removeItem(key);
     } catch {
       /* ignore */
     }
@@ -95,7 +97,7 @@ export function useRestTimer() {
       setState((t) => t && { ...t, rang: true });
     }, Math.max(0, state.endAt - Date.now()));
     return () => clearTimeout(id);
-  }, [state]);
+  }, [state, key]);
 
   const start = useCallback((sec) => {
     unlockAudio(); // appelé dans un geste utilisateur : débloque le son sur iOS
@@ -115,12 +117,12 @@ export function useRestTimer() {
   // Effacement immédiat : à la fin d'une séance, l'écran se démonte avant que l'effet n'ait tourné.
   const stop = useCallback(() => {
     try {
-      localStorage.removeItem(K_TIMER);
+      localStorage.removeItem(key);
     } catch {
       /* ignore */
     }
     setState(null);
-  }, []);
+  }, [key]);
 
   return { state, start, add, stop };
 }

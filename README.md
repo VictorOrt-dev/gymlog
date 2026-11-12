@@ -24,6 +24,10 @@ Pendant la séance, tout est sur la carte de l'exercice :
 
 À la fin : « Bravo · 2 records de force ▲ » quand ta meilleure série bat celle de la dernière fois.
 
+**En binôme**, une barre d'avatars sous l'en-tête de la séance : un tap et tu passes sur la séance de ton pote (son exercice ouvert, ses charges, son chrono), un tap et tu reviens. « + Pote » l'ajoute en pleine séance avec les mêmes exercices. Quand tu termines, l'app bascule sur sa séance s'il n'a pas fini.
+
+**Imprévus à la salle** : le bouton « ⋯ » d'un exercice permet de le **monter / descendre**, de le **remplacer** si la machine est prise (les séries déjà faites restent sur l'original, le remplaçant s'insère juste après) ou de le retirer.
+
 Et aussi : **plusieurs profils** pour les potes, sauvegarde à chaque tap (avec alerte immédiate si le stockage sature), écran qui reste allumé pendant la séance, fonctionne hors-ligne, export/import JSON (derrière l'avatar).
 
 ## Démarrer
@@ -35,6 +39,14 @@ npm run dev
 
 Ouvre l'URL « Network » affichée sur ton téléphone (même Wi-Fi).
 En `http://` sur le réseau local, l'écran qui reste allumé et le hors-ligne sont désactivés : ils exigent HTTPS, donc GitHub Pages.
+
+## Tests
+
+```bash
+npm test
+```
+
+51 tests unitaires (Vitest) couvrent la logique critique : 1RM ajusté au RIR, double progression par fourchette, échauffements, stagnation, migration des données, validation des sauvegardes, binôme, réordonner / remplacer. Ils tournent sur GitHub à chaque push : **si un test échoue, rien n'est mis en ligne.**
 
 ## Mettre en ligne (GitHub Pages)
 
@@ -49,14 +61,17 @@ Fais-le : sur iOS, Safari peut effacer les données d'un site non ouvert pendant
 
 ```
 src/
-├─ App.jsx                  deux écrans : accueil ⇄ séance en cours
+├─ App.jsx                  onglets Entraînement / Progrès ⇄ séance en cours
 ├─ lib/
 │  ├─ store.jsx             état global + persistance localStorage (2 clés)
 │  ├─ defaults.js           91 exercices par muscle, modèles, migration des données
-│  ├─ training.js           la logique de coach : dernière perf, objectif, tonnage, ▲/▼
+│  ├─ training.js           la logique de coach : 1RM × RIR, fourchettes, échauffements, stagnation
+│  ├─ session.js            binôme, réordonner, remplacer (logique pure, testée)
+│  ├─ backup.js             export signé + import validé champ par champ
 │  └─ hooks.js              timer de repos, wake lock, horloge
-└─ components/
-   ├─ Home.jsx              ★ l'écran principal (séance du jour, semaine, progression, séances)
+├─ components/
+   ├─ Home.jsx              onglet Entraînement (séance du jour, semaine, séances)
+   ├─ ProgressTab.jsx       onglet Progrès
    ├─ SessionLogger.jsx     ★ la séance en cours (95 % du temps)
    ├─ ExerciseCard.jsx      ★ saisie + semaine dernière côte à côte + jauge de tonnage
    ├─ ProgressSection.jsx   une carte de force par exercice, cliquable
@@ -64,7 +79,8 @@ src/
    ├─ Charts.jsx            graphiques SVG faits main (aucune librairie)
    ├─ SwipeRow.jsx          glisser pour supprimer
    ├─ ExercisePicker · TemplateEditor · SessionDetail · ProfileSheet
-   └─ RestTimer · Stepper · Toast · Sheet · ui · Icons
+   └─ RestTimer · Stepper · Toast · Sheet · StorageAlert · ui · Icons
+tests/                       Vitest : training, migrate, backup, session
 ```
 
 ## Les indicateurs (pas de piège du tonnage brut)

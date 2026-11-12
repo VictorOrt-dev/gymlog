@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { parseBackup } from '../lib/backup';
 import { useStore } from '../lib/store';
 import { ago } from '../lib/training';
 import Sheet from './Sheet';
@@ -21,15 +22,13 @@ export default function ProfileSheet({ open, onClose }) {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    try {
-      const data = JSON.parse(await file.text());
-      if (!Array.isArray(data.sessions) || !Array.isArray(data.profiles)) throw new Error('format');
-      if (confirm(`Remplacer les données de ce téléphone par cette sauvegarde (${data.sessions.length} séances) ?`)) {
-        replaceAll(data);
-        onClose();
-      }
-    } catch {
-      alert('Fichier de sauvegarde invalide.');
+    // Validation complète AVANT d'injecter : un fichier abîmé ne peut pas corrompre les données du téléphone.
+    const res = parseBackup(await file.text().catch(() => ''));
+    if (!res.ok) return alert(`Import refusé : ${res.error}\nTes données actuelles n’ont pas été modifiées.`);
+    const { sessions, profiles } = res.data;
+    if (confirm(`Remplacer les données de ce téléphone par cette sauvegarde ?\n${profiles.length} profil${profiles.length > 1 ? 's' : ''} · ${sessions.length} séance${sessions.length > 1 ? 's' : ''}`)) {
+      replaceAll(res.data);
+      onClose();
     }
   };
 
