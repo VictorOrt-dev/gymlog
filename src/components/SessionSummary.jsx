@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { moveSessionToDay } from '../lib/session';
+import { sessionKcal } from '../lib/stats';
 import { useStore } from '../lib/store';
 import { drawSummary } from '../lib/summaryImage';
 import { fmtInt, fmtSet } from '../lib/training';
@@ -34,6 +35,8 @@ export default function SessionSummary({ data, onClose }) {
   const [sharing, setSharing] = useState(false);
   if (!data) return null;
   const session = state.sessions.find((x) => x.id === data.sessionId);
+  const bw = state.profiles.find((p) => p.id === state.profileId)?.bw;
+  const energy = session ? sessionKcal(session, bw) : null;
   const names = Object.fromEntries(state.exercises.map((e) => [e.id, e.name]));
   const { summary: s } = data;
 
@@ -68,7 +71,7 @@ export default function SessionSummary({ data, onClose }) {
         )}
 
         <div className="mt-5 grid grid-cols-2 gap-2">
-          <Tile label="Durée" value={`${s.minutes} min`} />
+          <Tile label={energy ? `Durée · ≈ ${energy.kcal} kcal` : 'Durée'} value={`${s.minutes} min`} />
           <Tile label="Séries de travail" value={s.sets} />
           <Tile label={s.records > 1 ? 'Records battus' : 'Record battu'} value={s.records} accent={s.records > 0} />
           <div className="rounded-2xl bg-card px-3.5 py-3">
@@ -83,6 +86,12 @@ export default function SessionSummary({ data, onClose }) {
             )}
           </div>
         </div>
+
+        {energy && (
+          <p className="mt-2 px-1 text-[13px] leading-snug text-muted">
+            ≈ {energy.kcal} kcal actives : estimation d’après la durée, ton effort et {energy.assumedBw ? 'un poids de 75 kg (indique le tien dans Réglages pour l’affiner)' : 'ton poids de corps'}. Ordre de grandeur, ±30 %.
+          </p>
+        )}
 
         <h2 className="mb-2 mt-8 px-1 text-[20px] font-bold tracking-tight">Exercice par exercice</h2>
         <p className="mb-2 px-1 text-[13px] text-muted">

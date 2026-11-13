@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { editSessionSet, moveSessionToDay } from '../lib/session';
+import { sessionKcal } from '../lib/stats';
 import { useStore } from '../lib/store';
 import { fmtInt, fmtSet, rirText, tonnage, work } from '../lib/training';
 import DayPicker from './DayPicker';
@@ -101,6 +102,7 @@ export default function SessionDetail({ session, onClose, onDelete }) {
 
   const byId = Object.fromEntries(state.exercises.map((e) => [e.id, e]));
   const { sets, volume, minutes } = sessionStats(session);
+  const energy = sessionKcal(session, state.profiles.find((p) => p.id === state.profileId)?.bw);
   const when = new Date(session.startedAt);
 
   const apply = (i, j, patch) => {
@@ -140,8 +142,9 @@ export default function SessionDetail({ session, onClose, onDelete }) {
       <div className="mt-4 grid grid-cols-3 gap-2">
         <Stat label="Durée" value={`${minutes} min`} />
         <Stat label="Séries" value={sets} />
-        <Stat label="Tonnage" value={volume ? `${fmtInt(volume)} kg` : '—'} />
+        <Stat label="Tonnage (kg)" value={volume ? fmtInt(volume) : '—'} />
       </div>
+      <p className="mt-2 px-1 text-[13px] text-muted">≈ {energy.kcal} kcal actives (estimation{energy.assumedBw ? ' sur 75 kg' : ''})</p>
 
       <p className="mt-4 px-1 text-[13px] text-muted">Une erreur de saisie ? Touche la série pour la corriger : objectifs, records et courbes suivent.</p>
 

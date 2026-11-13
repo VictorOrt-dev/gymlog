@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { CUSTOM_GROUP, GROUPS } from '../lib/defaults';
-import { LEVELS, SESSION_CAP, VOLUME_ZONE, calendarGrid, crowdedSessions, mondayOf, muscleOrder, stallingExercises, strengthLevel, volumeStatus, weekStreak, weeklyVolume } from '../lib/stats';
+import { LEVELS, SESSION_CAP, sessionKcal, VOLUME_ZONE, calendarGrid, crowdedSessions, mondayOf, muscleOrder, stallingExercises, strengthLevel, volumeStatus, weekStreak, weeklyVolume } from '../lib/stats';
 import { useStore } from '../lib/store';
 import { ago, fmtW, isStalling, seriesFor } from '../lib/training';
 import { Segmented } from './Charts';
@@ -297,12 +297,13 @@ export default function ProgressTab() {
             <div className="overflow-hidden rounded-2xl bg-card">
               {recent.map((s) => {
                 const { sets, minutes } = sessionStats(s);
+                const { kcal } = sessionKcal(s, profile.bw);
                 return (
                   <button key={s.id} onClick={() => setDetailId(s.id)} className="sep flex w-full items-center gap-3 py-3 pl-4 pr-3 text-left active:bg-fill">
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-[17px] font-semibold">{s.name}</div>
                       <div className="text-[15px] text-muted first-letter:uppercase">
-                        {ago(s.startedAt)} · {minutes} min
+                        {ago(s.startedAt)} · {minutes} min · ≈ {kcal} kcal
                       </div>
                     </div>
                     <span className="shrink-0 font-num text-[15px] text-muted">

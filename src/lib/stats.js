@@ -203,3 +203,31 @@ export function strengthLevel(e1rmKg, bodyweight, exerciseId, sex = 'h') {
     progress: highRatio ? Math.min(1, (ratio - lowRatio) / (highRatio - lowRatio)) : 1,
   };
 }
+
+// ── Dépense énergétique estimée (MET) ────────────────────────────────────────
+
+/**
+ * Minutes réellement actives : de la 1re à la dernière série (+3 min pour la mise en route et la dernière série),
+ * pour qu'une séance oubliée ouverte ne gonfle pas le compteur. Sans horodatage : la durée de la séance. Plafond 3 h.
+ */
+export function activeMinutes(session) {
+  const ats = session.items.flatMap((it) => it.sets.map((s) => s.at)).filter((t) => Number.isFinite(t));
+  const total = session.endedAt != null ? (session.endedAt - session.startedAt) / 60e3 : null;
+  let mins = ats.length >= 2 ? (Math.max(...ats) - Math.min(...ats)) / 60e3 + 3 : (total ?? 0);
+  if (total != null && total > 0) mins = Math.min(mins, total);
+  return Math.max(1, Math.min(180, mins));
+}
+
+/**
+ * Calories actives estimées (en plus du métabolisme de repos) : (MET − 1) × poids × heures.
+ * L'intensité suit l'effort réel : RIR moyen ≤ 1 → 6 MET (vigoureux), ≤ 2,5 → 5, au-delà → 3,5 (modéré).
+ * Ordre de grandeur (±30 %, comme les montres) ; sans poids de corps renseigné, calcul sur 75 kg.
+ */
+export function sessionKcal(session, bodyweight) {
+  const bw = bodyweight > 0 ? bodyweight : 75;
+  const rirs = session.items.flatMap((it) => main(it.sets)).map((s) => s.rir).filter((r) => r != null);
+  const avg = rirs.length ? rirs.reduce((a, b) => a + b, 0) / rirs.length : 2;
+  const met = avg <= 1 ? 6 : avg <= 2.5 ? 5 : 3.5;
+  const minutes = activeMinutes(session);
+  return { kcal: Math.round(((met - 1) * bw * minutes) / 60 / 5) * 5, met, minutes: Math.round(minutes), assumedBw: !(bodyweight > 0) };
+}

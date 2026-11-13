@@ -142,3 +142,25 @@ describe('Effort visé, volume en séries dures, variantes', async () => {
     }
   });
 });
+
+describe('Calories estimées', async () => {
+  const { sessionKcal, activeMinutes } = await import('../src/lib/stats');
+  const t0 = 1_000_000;
+  const mk = (rir, mins, { at = true, endedAfter = mins } = {}) => ({
+    startedAt: t0,
+    endedAt: t0 + endedAfter * 60e3,
+    items: [{ exerciseId: 'x', sets: [{ w: 80, r: 8, rir, ...(at ? { at: t0 + 60e3 } : {}) }, { w: 80, r: 8, rir, ...(at ? { at: t0 + (mins - 2) * 60e3 } : {}) }] }],
+  });
+  it('(MET − 1) × poids × heures, arrondi à 5 kcal', () => {
+    expect(sessionKcal(mk(2, 60), 80)).toMatchObject({ met: 5, kcal: 320 }); // 4 × 80 × 1 h
+  });
+  it('l’effort réel module l’intensité', () => {
+    expect(sessionKcal(mk(0, 60), 80).met).toBe(6);
+    expect(sessionKcal(mk(4, 60), 80).met).toBe(3.5);
+  });
+  it('une séance oubliée ouverte ne gonfle pas le compteur', () => {
+    expect(activeMinutes(mk(2, 60, { endedAfter: 300 }))).toBe(60); // séries de 1 à 58 min (+3) = 60, même si la séance est restée ouverte 5 h
+    expect(activeMinutes(mk(2, 60, { at: false, endedAfter: 400 }))).toBe(180);
+  });
+  it('sans poids de corps : calcul sur 75 kg, signalé', () => expect(sessionKcal(mk(2, 60))).toMatchObject({ kcal: 300, assumedBw: true }));
+});
