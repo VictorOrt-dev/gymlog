@@ -3,7 +3,7 @@ export const uid = () => Date.now().toString(36) + Math.random().toString(36).sl
 export const slug = (s) =>
   s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
-export const VERSION = 4;
+export const VERSION = 5;
 export const DEFAULT_REST = 120;
 export const CUSTOM_GROUP = 'Mes exercices';
 
@@ -152,7 +152,8 @@ const SECONDARY = {
  * Fourchette de reps par défaut, déduite du type d'exercice (via son temps de repos) :
  * gros polyarticulaires lourds 5–8, polyarticulaires 6–10, accessoires 8–12, isolation 10–15, abdos 12–20.
  */
-export const defaultRange = (rest) => (rest >= 180 ? [5, 8] : rest >= 150 ? [6, 10] : rest >= 120 ? [8, 12] : rest >= 90 ? [10, 15] : rest > 0 ? [12, 20] : [8, 12]);
+// Isolation (repos 90 s) : 8–12, comme les accessoires — 8 reps lourdes proches de l'échec construisent aussi bien le muscle.
+export const defaultRange = (rest) => (rest >= 180 ? [5, 8] : rest >= 150 ? [6, 10] : rest >= 90 ? [8, 12] : rest > 0 ? [12, 20] : [8, 12]);
 export const RANGES = [[3, 5], [5, 8], [6, 10], [8, 12], [10, 15], [12, 20]];
 
 export const libraryExercises = () =>
@@ -256,6 +257,16 @@ export function migrate(input) {
       deload: s.deload ?? {},
       exercises: s.exercises.map((e) => ({ ...e, sec: e.sec ?? secById.get(e.id) ?? [] })),
       templates: s.templates.map((t) => ({ ...t, supersets: t.supersets ?? [] })),
+    };
+  }
+  if (s.v < 5) {
+    // v4 → v5 : fourchette par défaut des isolations 10–15 → 8–12. Seuls les exercices de la bibliothèque encore
+    // sur l'ancien réglage par défaut changent ; historique, notes, séances, planning : rien d'autre n'est touché.
+    const isolation = new Set(Object.values(LIBRARY).flat().filter(([, , rest]) => rest >= 90 && rest < 120).map(([name]) => slug(name)));
+    s = {
+      ...s,
+      v: 5,
+      exercises: s.exercises.map((e) => (isolation.has(e.id) && e.range?.[0] === 10 && e.range?.[1] === 15 ? { ...e, range: [8, 12] } : e)),
     };
   }
   // Données existantes sans le drapeau : l'app était déjà utilisée, pas d'écran de bienvenue.

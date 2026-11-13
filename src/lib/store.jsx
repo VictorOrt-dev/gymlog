@@ -2,15 +2,28 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 import { serializeBackup } from './backup';
 import { applySupersets, renameTemplateIn } from './session';
 import { norm } from './training';
-import { CUSTOM_GROUP, DEFAULT_REST, initialState, migrate, planFromChoice, templateFromModel, uid } from './defaults';
+import { CUSTOM_GROUP, DEFAULT_REST, VERSION, initialState, migrate, planFromChoice, templateFromModel, uid } from './defaults';
 
 const K_DATA = 'gymlog:data';
 const K_SESSIONS = 'gymlog:sessions'; // l'historique grossit : clé séparée, réécrite seulement quand il change
+const K_BEFORE_UPDATE = 'gymlog:avant-mise-a-jour';
 
 function load() {
   try {
-    const data = JSON.parse(localStorage.getItem(K_DATA));
-    if (data) return migrate({ ...data, sessions: JSON.parse(localStorage.getItem(K_SESSIONS)) ?? [] });
+    const raw = localStorage.getItem(K_DATA);
+    const data = JSON.parse(raw);
+    if (data) {
+      const sessions = localStorage.getItem(K_SESSIONS);
+      if ((data.v ?? 1) < VERSION) {
+        // Filet de sécurité avant une mise à jour du format : copie brute des données d'avant (une seule, écrasée à la suivante).
+        try {
+          localStorage.setItem(K_BEFORE_UPDATE, JSON.stringify({ at: Date.now(), data: raw, sessions }));
+        } catch {
+          /* stockage plein : la migration n'en dépend pas */
+        }
+      }
+      return migrate({ ...data, sessions: JSON.parse(sessions) ?? [] });
+    }
   } catch (e) {
     console.error('GymLog : lecture du stockage impossible', e);
   }

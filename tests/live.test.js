@@ -9,20 +9,39 @@ describe('Objectif série par série', () => {
   const goal = { w: 80, r: 10 };
   it('série 1 = objectif de séance', () => expect(setTargets(goal, [], opts)[0]).toMatchObject({ w: 80, r: 10 }));
   it('objectif tenu → on garde le cap', () => expect(setTargets(goal, [S(80, 10, 1)], opts)[1]).toMatchObject({ w: 80, r: 10, why: null }));
-  it('série manquée → −5 % arrondi (au moins un cran), mêmes reps visées', () => {
-    expect(setTargets(goal, [S(80, 7, 1)], opts)[1]).toMatchObject({ w: 75, r: 10 });
-    expect(setTargets({ w: 40, r: 10 }, [S(40, 8, 0)], opts)[1]).toMatchObject({ w: 37.5, r: 10 });
+  it('vraie chute (3 reps sous l’objectif) → −5 % arrondi, ~2 reps de plus', () => {
+    expect(setTargets(goal, [S(80, 7, 1)], opts)[1]).toMatchObject({ w: 75, r: 9 });
+  });
+  it('fatigue normale à l’échec (−1 ou −2 reps) → même charge', () => {
+    expect(setTargets({ w: 40, r: 10 }, [S(40, 8, 0)], opts)[1]).toMatchObject({ w: 40, r: 7 });
+    expect(setTargets(goal, [S(80, 9, 0)], opts)[1]).toMatchObject({ w: 80, r: 8 });
   });
   it('échec pile à l’objectif → une rep de moins', () => expect(setTargets(goal, [S(80, 10, 0)], opts)[1]).toMatchObject({ w: 80, r: 9 }));
-  it('trop facile → +1 rep, ou on charge en haut de fourchette', () => {
+  it('trop facile → +1 rep, ou on charge en haut de fourchette sans faire tomber les reps', () => {
     expect(setTargets(goal, [S(80, 10, 3)], opts)[1]).toMatchObject({ w: 80, r: 11 });
-    expect(setTargets({ w: 80, r: 12 }, [S(80, 12, 4)], opts)[1]).toMatchObject({ w: 82.5, r: 8 });
+    expect(setTargets({ w: 80, r: 12 }, [S(80, 12, 4)], opts)[1]).toMatchObject({ w: 82.5, r: 12 });
   });
-  it('s’enchaîne série après série', () => {
-    const t = setTargets(goal, [S(80, 10, 0), S(80, 9, 0), S(80, 6, 0)], opts);
-    expect(t.map((x) => `${x.w}×${x.r}`)).toEqual(['80×10', '80×9', '80×8', '75×8']);
+  it('s’enchaîne série après série, sans couper la charge pour de la fatigue', () => {
+    const t = setTargets(goal, [S(80, 10, 0), S(80, 9, 0), S(80, 8, 0)], opts);
+    expect(t.map((x) => `${x.w}×${x.r}`)).toEqual(['80×10', '80×9', '80×8', '80×7']);
   });
   it('sans historique, part de la série précédente', () => expect(setTargets(null, [S(50, 10, 2)], opts)[1]).toMatchObject({ w: 50, r: 10 }));
+  it('cas réel : leg extension en 10–15, 8 reps lourdes voulues → pas de 10 imposé, pas de −5 kg', () => {
+    const t = setTargets(null, [S(80, 8, 1), S(80, 9, 0), S(80, 8, 0)], { inc: 5, range: [10, 15] });
+    expect(t.map((x) => x && `${x.w}×${x.r}`)).toEqual([null, '80×8', '80×8', '80×7']);
+  });
+  it('la fourchette ne s’impose pas en séance : sous le bas, on suit ce qui a été fait', () => {
+    expect(setTargets({ w: 80, r: 10 }, [S(80, 8, 1)], { inc: 2.5, range: [10, 15] })[1]).toMatchObject({ w: 80, r: 8 });
+  });
+  it('après un échec, jamais plus de reps visées que celles faites', () => {
+    for (const range of [[5, 8], [8, 12], [10, 15], [12, 20]])
+      for (let r = 1; r <= 20; r++)
+        for (const aim of [5, 10, 15]) {
+          const next = setTargets({ w: 60, r: aim }, [S(60, r, 0)], { inc: 2.5, range })[1];
+          expect(next.r).toBeLessThan(r + (next.w < 60 ? 3 : 1)); // allégé : ~2 reps de plus au plus ; sinon jamais plus
+          if (next.w === 60) expect(next.r).toBeLessThanOrEqual(Math.max(1, r - 1));
+        }
+  });
 });
 
 describe('Progression de la séance', () => {

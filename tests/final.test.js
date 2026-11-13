@@ -61,3 +61,53 @@ describe('Renommer un exercice', async () => {
   it('refuse un nom vide', () => expect(exerciseNameError(ex, 'dc', '   ')).toMatch(/nom/));
   it('refuse le nom d’un autre exercice (accents et majuscules ignorés)', () => expect(exerciseNameError(ex, 'dc', ' SQUAT ')).toBe('« Squat » existe déjà.'));
 });
+
+describe('Mise à jour v4 → v5 : rien ne se perd', () => {
+  const v4 = () => {
+    const s = initialState();
+    const pid = s.profileId;
+    s.v = 4;
+    s.exercises = s.exercises.map((e) =>
+      e.id === 'leg-extension' ? { ...e, range: [10, 15] } : e.id === 'curl-barre' ? { ...e, range: [12, 20] } : e,
+    );
+    s.exercises.push({ id: 'perso', name: 'Machine du fond', group: 'Perso', inc: 2.5, rest: 90, range: [10, 15], sec: [] });
+    s.sessions = [{ id: 's1', profileId: pid, templateId: null, name: 'Jambes', startedAt: 1, endedAt: 2, items: [{ exerciseId: 'leg-extension', sets: [{ w: 80, r: 8, rir: 1 }, { w: 80, r: 9, rir: 0 }] }] }];
+    s.notes = { [pid]: { 'leg-extension': 'Dossier cran 4' } };
+    s.drafts = { [pid]: { id: 'd1', profileId: pid, templateId: null, name: 'En cours', startedAt: 3, form: 'ok', items: [{ exerciseId: 'squat', sets: [{ w: 100, r: 5, rir: 2 }] }] } };
+    s.deload = { [pid]: 123 };
+    s.profiles = s.profiles.map((p) => ({ ...p, name: 'Victor', bw: 80, sex: 'h' }));
+    s.lastExport = 99;
+    s.onboarded = true;
+    return s;
+  };
+
+  it('historique, notes, séance en cours, séances types, planning, profil : identiques', () => {
+    const before = v4();
+    const after = migrate(structuredClone(before));
+    for (const key of ['sessions', 'notes', 'drafts', 'templates', 'plans', 'profiles', 'deload', 'lastExport', 'profileId', 'onboarded']) expect(after[key]).toEqual(before[key]);
+    expect(after.exercises.map((e) => e.id)).toEqual(before.exercises.map((e) => e.id));
+    expect(after.exercises.map((e) => e.name)).toEqual(before.exercises.map((e) => e.name));
+  });
+  it('seules les isolations encore sur l’ancien défaut passent en 8–12', () => {
+    const ex = Object.fromEntries(migrate(v4()).exercises.map((e) => [e.id, e.range]));
+    expect(ex['leg-extension']).toEqual([8, 12]);
+    expect(ex['curl-barre']).toEqual([12, 20]); // réglé à la main : gardé
+    expect(ex.perso).toEqual([10, 15]); // exercice perso : gardé
+    expect(ex.squat).toEqual([5, 8]);
+  });
+  it('ne s’applique qu’une fois : un 10–15 choisi après la mise à jour reste', () => {
+    const once = migrate(v4());
+    once.exercises = once.exercises.map((e) => (e.id === 'leg-extension' ? { ...e, range: [10, 15] } : e));
+    expect(migrate(once).exercises.find((e) => e.id === 'leg-extension').range).toEqual([10, 15]);
+    expect(migrate(once).v).toBe(5);
+  });
+  it('une sauvegarde v4 se restaure dans la nouvelle version', async () => {
+    const { parseBackup } = await import('../src/lib/backup');
+    const before = v4();
+    const res = parseBackup(JSON.stringify({ app: 'gymlog', ...before }));
+    expect(res.ok).toBe(true);
+    expect(res.data.notes).toEqual(before.notes);
+    expect(res.data.sessions).toEqual(before.sessions);
+    expect(res.data.drafts).toEqual(before.drafts);
+  });
+});

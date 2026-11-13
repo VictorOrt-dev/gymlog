@@ -15,7 +15,7 @@ Pendant la séance, tout est sur la carte de l'exercice :
 
 - **La semaine dernière, côte à côte** : chaque série de travail en face de la même série de la dernière fois (poids × reps · RIR). La ligne « À battre » montre exactement quoi dépasser.
 - **Double progression par fourchette** (ex. 8–12, réglable en un tap) : on monte les reps jusqu'en haut de la fourchette sur toutes les séries, puis on charge et on repart du bas. L'objectif du jour est pré-rempli.
-- **Objectif série par série** : après chaque série, l'objectif de la suivante s'ajuste. Série ratée (2 reps de moins, ou échec sous l'objectif) → −5 % de charge, mêmes reps ; échec pile à l'objectif → une rep de moins ; trop facile (RIR ≥ 3) → +1 rep ou un cran de plus. Une ligne explique pourquoi, et les champs sont déjà pré-remplis.
+- **Objectif série par série** : après chaque série, l'objectif de la suivante suit ce que tu viens de faire. Échec → même charge, une rep de moins (jamais plus de reps qu'à la série d'avant) ; perdre 1 à 2 reps d'une série à l'autre est de la fatigue normale, la charge ne baisse pas ; vraie chute (3 reps ou plus sous l'objectif) → −5 % ; trop facile (RIR ≥ 3) → +1 rep ou un cran de plus. La fourchette ne s'impose pas en pleine séance : elle décide seulement quand charger la fois suivante.
 - **Progression de la séance** dans l'en-tête : « 4/9 séries » et un trait rose (prévu = séries de la dernière fois, 3 pour un exercice nouveau).
 - **Glisser une série vers la gauche** pour la supprimer, avec « Annuler » (le même geste que pour les séances types).
 - **Forme du jour** : « Fatigué / Normal / En forme », toujours visible en haut de la séance et modifiable à tout moment. Jour sans → objectifs à −5 % ; en forme → on charge un cran plus tôt.
@@ -111,6 +111,7 @@ e2e/                         Playwright : parcours réels en format téléphone
 ## Choix assumés
 
 - **Le chrono ne sonne pas écran verrouillé.** Sur iPhone, une app web ne peut pas réveiller le téléphone sans serveur de notifications, ce qui casserait le « 100 % local ». Réponse retenue : l'écran reste allumé pendant la séance, et la fin du repos fait clignoter tout l'écran.
+- **Mises à jour sans perte** : chaque changement de format passe par une migration testée (historique, notes, séance en cours, séances types, planning restent identiques), et une copie brute des données d'avant est gardée sur le téléphone (`gymlog:avant-mise-a-jour`).
 - **Stockage protégé** : l'app demande au système de ne pas vider ses données quand l'appareil manque de place (`navigator.storage.persist()`), en plus du rappel de sauvegarde.
 - **Écran de démarrage noir** (`scripts/splash.mjs` génère les images iOS) : pas de flash blanc à l'ouverture.
 
@@ -133,8 +134,8 @@ Elle est dans `src/lib/training.js`, fonction `target()`. Double progression par
 | Pas encore toutes en haut               | même charge, + 1 rep (max 12)        |
 | Sous le bas de la fourchette (< 8)      | même charge, viser 8                 |
 
-Fourchettes par défaut : 5–8 sur les gros polyarticulaires, 6–10 sur les polyarticulaires, 8–12 en accessoire, 10–15 en isolation, 12–20 pour les abdos.
+Fourchettes par défaut : 5–8 sur les gros polyarticulaires, 6–10 sur les polyarticulaires, 8–12 en accessoire et en isolation, 12–20 pour les abdos et mollets. Chacune se change dans « ⋯ ».
 
-**Pendant la séance**, `setTargets()` ajuste l'objectif de chaque série suivante d'après la précédente (série ratée → −5 % arrondi au cran ; échec à l'objectif → −1 rep ; trop facile → +1 rep ou +1 cran).
+**Pendant la séance**, `setTargets()` ajuste l'objectif de chaque série suivante d'après la précédente (échec → même charge, −1 rep ; vraie chute de 3 reps ou plus → −5 % ; trop facile → +1 rep ou +1 cran). Sans imposer la fourchette.
 
 Les flèches ▲ = ▼ comparent avec le 1RM estimé sur reps + RIR. Ainsi, 82,5 × 6 et 80 × 8 se jugent sur la même échelle.

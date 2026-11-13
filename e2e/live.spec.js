@@ -24,22 +24,21 @@ test('séance : progression, objectif ajusté après une série ratée, glisser 
   await expect(header).toContainText('0/6 séries'); // 2 + 1 la dernière fois, 3 pour l'exercice nouveau
   const card = page.locator('main section').filter({ hasText: 'Développé couché' }).first();
   await expect(card).toContainText('82,5 kg × 5');
-  // Série ratée : 3 reps au lieu de 5
-  await card.getByRole('button', { name: 'reps moins 1' }).dispatchEvent('click');
-  await card.getByRole('button', { name: 'reps moins 1' }).dispatchEvent('click');
+  // Vraie chute : 2 reps au lieu de 5 (−1 ou −2 serait de la fatigue normale, sans baisse de charge)
+  for (let k = 0; k < 3; k++) await card.getByRole('button', { name: 'reps moins 1' }).dispatchEvent('click');
   await tap(page, 'button:has-text("Valider la série 1")');
   await expect(header).toContainText('1/6 séries');
   await expect(page.getByRole('progressbar', { name: 'Séries validées' })).toHaveAttribute('aria-valuenow', '1');
-  await expect(card.getByText('Série 1 manquée')).toBeVisible();
+  await expect(card.getByText('Série 1 : 3 reps sous l’objectif, 5 kg de moins')).toBeVisible();
   await expect(card.getByText('Objectif du jour')).toHaveCount(0); // un seul message à la fois : le coach l'emporte
-  await expect(card).toContainText('77,5 kg × 5'); // −5 % arrondi au cran, mêmes reps visées
+  await expect(card).toContainText('77,5 kg × 4'); // −5 % arrondi au cran, ~2 reps de plus visées
   await page.getByRole('button', { name: 'Arrêter le chrono' }).click();
   // Glisser la série vers la gauche : supprimée, annulable
-  await swipeLeft(page, card.getByRole('button', { name: /82,5 × 3/ }));
+  await swipeLeft(page, card.getByRole('button', { name: /82,5 × 2/ }));
   await expect(page.getByRole('status').filter({ hasText: 'Série supprimée' })).toBeVisible();
   await expect(header).toContainText('0/6 séries');
   await page.getByRole('button', { name: 'Annuler' }).click();
-  await expect(card.getByRole('button', { name: /82,5 × 3/ })).toBeVisible();
+  await expect(card.getByRole('button', { name: /82,5 × 2/ })).toBeVisible();
   await expect(header).toContainText('1/6 séries');
 });
 

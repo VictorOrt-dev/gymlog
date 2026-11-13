@@ -126,3 +126,23 @@ test.describe('renommer un exercice', () => {
     await expect(page.locator('main')).toContainText('Développé militaire debout');
   });
 });
+
+test('mise à jour de l’app : séance en cours, notes et historique intacts', async ({ page }) => {
+  await seed(page);
+  // Données telles qu'une version précédente (v4) les a laissées, avec une séance en cours et une note
+  await page.evaluate(() => {
+    const d = JSON.parse(localStorage.getItem('gymlog:data'));
+    d.v = 4;
+    d.notes = { p1: { 'developpe-couche': 'Banc cran 3' } };
+    d.drafts = { p1: { id: 'dx', profileId: 'p1', templateId: 'tp', name: 'Push', startedAt: Date.now() - 600e3, open: 0, form: 'ok', items: [{ exerciseId: 'developpe-couche', sets: [{ w: 82.5, r: 6, rir: 1, at: Date.now() - 300e3 }] }, { exerciseId: 'developpe-militaire', sets: [] }] } };
+    localStorage.setItem('gymlog:data', JSON.stringify(d));
+  });
+  const sessionsBefore = await page.evaluate(() => localStorage.getItem('gymlog:sessions'));
+  await page.reload(); // = ouverture de la nouvelle version
+  await expect(page.locator('header')).toContainText('Push'); // on retombe directement dans la séance en cours
+  const card = page.locator('main section').first();
+  await expect(card).toContainText('82,5 × 6'); // la série déjà faite est là
+  await expect(card).toContainText('Banc cran 3'); // la note aussi
+  const after = await page.evaluate(() => ({ sessions: localStorage.getItem('gymlog:sessions'), v: JSON.parse(localStorage.getItem('gymlog:data')).v, safety: !!localStorage.getItem('gymlog:avant-mise-a-jour') }));
+  expect(after).toEqual({ sessions: sessionsBefore, v: 5, safety: true }); // historique octet pour octet, filet de sécurité posé
+});

@@ -144,7 +144,7 @@ describe('Migration v4', () => {
     const s = initialState();
     const v3 = { ...s, v: 3, deload: undefined, exercises: s.exercises.map(({ sec, ...e }) => e), templates: s.templates.map(({ supersets, ...t }) => t) }; // eslint-disable-line no-unused-vars
     const m = migrate(v3);
-    expect(m.v).toBe(4);
+    expect(m.v).toBe(5); // jusqu'à la version courante
     expect(m.exercises.find((e) => e.id === 'squat').sec).toEqual(['Ischios & fessiers']);
     expect(m.templates.every((t) => Array.isArray(t.supersets))).toBe(true);
     expect(m.deload).toEqual({});

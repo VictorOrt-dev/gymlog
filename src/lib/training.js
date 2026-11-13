@@ -204,32 +204,32 @@ export function liveRecords(todaySets, history) {
 
 /**
  * Objectif de chaque série principale du jour, recalculé après chaque série faite.
- * Série 1 : l'objectif de séance (double progression). Séries suivantes : on part de l'objectif précédent
- * et on l'ajuste selon ce qui vient de se passer :
- *  - série ratée (2 reps de moins que visé, ou échec sous l'objectif) → −5 % de charge (au moins un cran), mêmes reps ;
- *  - échec atteint pile à l'objectif → même charge, une rep de moins ;
- *  - trop facile (RIR ≥ 3, objectif atteint) → +1 rep (ou +1 cran si déjà en haut de fourchette) ;
- *  - sinon → on garde le cap.
+ * Série 1 : l'objectif de séance (double progression). Ensuite, on suit ce qui se passe vraiment :
+ *  - vraie chute (3 reps ou plus sous l'objectif) → −5 % de charge (au moins un cran), ~2 reps de plus visées ;
+ *  - échec → même charge, une rep de moins que celles qu'on vient de faire (jamais plus après un échec) ;
+ *  - trop facile (RIR ≥ 3, objectif atteint) → +1 rep, ou +1 cran en haut de fourchette ;
+ *  - sinon → même charge, mêmes reps que la série faite.
+ * Perdre 1 à 2 reps d'une série à l'autre à l'échec, c'est de la fatigue normale : la charge ne baisse pas.
+ * La fourchette ne s'impose pas pendant la séance : elle décide seulement quand charger la séance suivante.
  * Renvoie un tableau de longueur sets.length + 1 : la dernière case est l'objectif de la PROCHAINE série.
  */
 export function setTargets(goal, todayMain, { inc = 2.5, range = [8, 12] } = {}) {
-  const [lo, hi] = range;
+  const hi = range[1];
   const out = [];
   let t = goal ? { w: goal.w, r: goal.r, why: null } : null;
   for (let k = 0; k <= todayMain.length; k++) {
     if (k > 0) {
       const last = todayMain[k - 1];
       const aim = t ?? { w: last.w, r: last.r };
-      const failed = last.r <= aim.r - 2 || (last.rir === 0 && last.r < aim.r);
-      if (failed && last.w > 0) {
+      if (last.r <= aim.r - 3 && last.w > 0) {
         const w = Math.max(0, Math.min(roundTo(last.w * 0.95, inc), last.w - inc));
-        t = { w, r: aim.r, why: `Série ${k} manquée : ${fmtW(last.w - w)} kg de moins pour rester dans tes reps` };
+        t = { w, r: Math.min(aim.r, last.r + 2), why: `Série ${k} : ${aim.r - last.r} reps sous l’objectif, ${fmtW(last.w - w)} kg de moins` };
       } else if (last.rir === 0) {
-        t = { w: last.w, r: Math.max(lo, Math.min(aim.r, last.r) - 1), why: `Échec à la série ${k} : une rep de moins visée` };
+        t = { w: last.w, r: Math.max(1, last.r - 1), why: `Échec à la série ${k} : une rep de moins, même charge` };
       } else if ((last.rir ?? 0) >= 3 && last.r >= aim.r) {
-        t = last.r >= hi && last.w > 0 ? { w: round(last.w + inc), r: lo, why: `Série ${k} trop facile : on charge` } : { w: last.w, r: Math.min(hi, last.r + 1), why: `Série ${k} trop facile : +1 rep` };
+        t = last.r >= hi && last.w > 0 ? { w: round(last.w + inc), r: last.r, why: `Série ${k} trop facile : on charge` } : { w: last.w, r: last.r + 1, why: `Série ${k} trop facile : +1 rep` };
       } else {
-        t = { w: last.w, r: Math.min(aim.r, Math.max(last.r, lo)), why: null };
+        t = { w: last.w, r: last.r, why: null };
       }
     }
     out.push(t);
