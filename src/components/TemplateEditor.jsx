@@ -1,18 +1,25 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { encodeTemplate, templateLink } from '../lib/share';
 import { useStore } from '../lib/store';
 import { useToast } from './Toast';
 import ExercisePicker from './ExercisePicker';
 import Sheet from './Sheet';
-import { Close, Plus, Up } from './Icons';
+import { Close, Pencil, Plus, Up } from './Icons';
 
 /** Éditer une séance type : renommer, ajouter, remonter, retirer. Chaque changement est enregistré direct. */
-export default function TemplateEditor({ template, onClose }) {
-  const { state, saveTemplate, deleteTemplate } = useStore();
+export default function TemplateEditor({ template, isNew = false, onClose }) {
+  const { state, saveTemplate, deleteTemplate, renameTemplate } = useStore();
   const notify = useToast();
   const [picking, setPicking] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [name, setName] = useState(template?.name ?? '');
+  useEffect(() => setName(template?.name ?? ''), [template?.id, template?.name]);
   if (!template) return null;
+  // Enregistré à chaque frappe (fermer la feuille ne perd rien) ; un nom vidé reprend l'ancien en quittant le champ.
+  const typeName = (v) => {
+    setName(v);
+    if (v.trim()) renameTemplate(template.id, v);
+  };
 
   const names = Object.fromEntries(state.exercises.map((e) => [e.id, e.name]));
   const ids = template.exerciseIds;
@@ -27,14 +34,24 @@ export default function TemplateEditor({ template, onClose }) {
   return (
     <>
       <Sheet open onClose={onClose}>
-        <input
-          value={template.name}
-          onChange={(e) => update({ name: e.target.value })}
-          placeholder="Nom de la séance"
-          aria-label="Nom de la séance"
-          className="w-full bg-transparent text-[28px] font-bold tracking-tight outline-none placeholder:text-faint"
-        />
-        <p className="mb-4 text-[15px] text-muted">
+        {/* Le nom se voit modifiable : un champ, un crayon. */}
+        <label className="flex items-center gap-2 rounded-xl bg-fill pl-4 pr-3.5 focus-within:ring-1 focus-within:ring-pink">
+          <input
+            value={name}
+            onChange={(e) => typeName(e.target.value)}
+            onBlur={() => !name.trim() && setName(template.name)}
+            onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+            onFocus={(e) => isNew && e.currentTarget.select()} // séance neuve : on tape, « Nouvelle séance » disparaît
+            autoFocus={isNew}
+            maxLength={40}
+            enterKeyHint="done"
+            placeholder="Nom de la séance"
+            aria-label="Nom de la séance"
+            className="h-14 min-w-0 flex-1 bg-transparent text-[24px] font-bold tracking-tight outline-none placeholder:text-faint"
+          />
+          <Pencil className="h-5 w-5 shrink-0 text-muted" />
+        </label>
+        <p className="mb-4 mt-2 px-1 text-[15px] text-muted">
           {ids.length} exercice{ids.length > 1 ? 's' : ''}
         </p>
         <div className="overflow-hidden rounded-2xl bg-fill">

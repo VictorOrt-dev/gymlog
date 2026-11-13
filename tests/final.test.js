@@ -33,3 +33,22 @@ describe('Changer la date d’une séance', () => {
   });
   it('même jour → séance inchangée', () => expect(moveSessionToDay(session, new Date(2026, 10, 12, 8).getTime())).toBe(session));
 });
+
+describe('Renommer une séance type', async () => {
+  const { renameTemplateIn } = await import('../src/lib/session');
+  const state = {
+    templates: [{ id: 't1', name: 'Nouvelle séance' }, { id: 't2', name: 'Legs' }],
+    sessions: [{ id: 's1', templateId: 't1', name: 'Nouvelle séance' }, { id: 's2', templateId: 't2', name: 'Legs' }],
+    drafts: { p1: { templateId: 't1', name: 'Nouvelle séance' } },
+  };
+  it('renomme la séance type, son historique et la séance en cours', () => {
+    const s = renameTemplateIn(state, 't1', '  Bras  ');
+    expect(s.templates[0].name).toBe('Bras');
+    expect(s.sessions.map((x) => x.name)).toEqual(['Bras', 'Legs']);
+    expect(s.drafts.p1.name).toBe('Bras');
+  });
+  it('un nom vide ou identique ne change rien', () => {
+    expect(renameTemplateIn(state, 't1', '   ')).toBe(state);
+    expect(renameTemplateIn(state, 't2', 'Legs')).toBe(state);
+  });
+});

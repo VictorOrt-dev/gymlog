@@ -9,7 +9,7 @@ Le carnet de muscu qui ne te ralentit pas. Pensé pour la salle : mains pleines 
 1. **La séance du jour** en un bouton (« Commencer Pull »), ou « Reprendre » si une séance est en cours. Un jour de repos, la carte montre **la prochaine séance** (« Pull · Mercredi ») avec « La faire maintenant ».
 2. **Ta semaine** : séances faites, prévues, jours de repos ; touche un jour pour changer sa séance. Une pastille **🔥 N semaines** quand tu enchaînes les semaines au rendez-vous (jamais de « 0 » culpabilisant).
 3. **Ta progression** : une carte par exercice avec sa **force** (1RM estimé de ta meilleure série) et sa mini-courbe. **Touche une carte** pour la vue dédiée : courbe semaine après semaine (glisse le doigt pour lire chaque séance), bascule vers le **tonnage effectif**, records, et chaque séance consultable.
-4. **Tes séances** (Push, Pull, Legs, Upper, Lower, Full body…) : ▶ pour démarrer, toucher pour modifier, **glisser vers la gauche pour supprimer** (avec « Annuler »). « Nouvelle séance » : **séance libre tout de suite** (en tête), ou une séance réutilisable, vide ou depuis un modèle.
+4. **Tes séances** (Push, Pull, Legs, Upper, Lower, Full body…) : ▶ pour démarrer, toucher pour **renommer** ou changer les exercices (le nouveau nom suit dans tout l’historique), **glisser vers la gauche pour supprimer** (avec « Annuler »). « Nouvelle séance » : **séance libre tout de suite** (en tête), ou une séance réutilisable, vide ou depuis un modèle.
 
 Pendant la séance, tout est sur la carte de l'exercice :
 

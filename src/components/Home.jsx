@@ -54,6 +54,7 @@ export default function Home({ onOpenSession }) {
   const [profilesOpen, setProfilesOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [freshId, setFreshId] = useState(null); // séance vide qu'on vient de créer : le nom est prêt à être tapé
 
   const today = week.find((d) => d.isToday);
   const deloadActive = (state.deload?.[pid] ?? 0) > Date.now();
@@ -78,6 +79,7 @@ export default function Home({ onOpenSession }) {
       saveTemplate({ id, profileId: pid, name: 'Nouvelle séance', exerciseIds: [] });
     }
     setCreating(false);
+    setFreshId(model ? null : id);
     setEditingId(id);
   };
   const remove = (t) => {
@@ -198,7 +200,7 @@ export default function Home({ onOpenSession }) {
       {/* 3. Mes séances : démarrer, modifier, glisser pour supprimer */}
       <Group
         title="Mes séances"
-        footer={templates.length ? 'Touche une séance pour la modifier. Glisse-la vers la gauche pour la supprimer.' : null}
+        footer={templates.length ? 'Touche une séance pour la renommer ou changer ses exercices. Glisse-la vers la gauche pour la supprimer.' : null}
       >
         {templates.map((t) => (
           <SwipeRow key={t.id} className="sep" onDelete={() => remove(t)}>
@@ -300,7 +302,7 @@ export default function Home({ onOpenSession }) {
         )}
       </Sheet>
 
-      <TemplateEditor template={templates.find((t) => t.id === editingId)} onClose={() => setEditingId(null)} />
+      <TemplateEditor template={templates.find((t) => t.id === editingId)} isNew={editingId === freshId} onClose={() => setEditingId(null)} />
       <SessionDetail session={mine.find((s) => s.id === detailId)} onClose={() => setDetailId(null)} />
       <SettingsSheet open={profilesOpen} onClose={() => setProfilesOpen(false)} />
     </Page>

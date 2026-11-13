@@ -74,3 +74,26 @@ test.describe('avec historique', () => {
     await expect(page.getByRole('heading', { name: 'Volume' })).toHaveCount(0);
   });
 });
+
+test.describe('renommer', () => {
+  test.beforeEach(async ({ page }) => seed(page));
+
+  test('une séance créée se renomme, et l’historique suit', async ({ page }) => {
+    await page.getByRole('button', { name: 'Nouvelle séance' }).click();
+    await page.getByRole('button', { name: /Séance vide/ }).click();
+    const field = page.getByRole('textbox', { name: 'Nom de la séance' });
+    await expect(field).toBeFocused();
+    await page.keyboard.type('Bras'); // le nom par défaut est sélectionné : on tape directement
+    await field.press('Enter');
+    await page.mouse.click(200, 20);
+    await expect(page.locator('section').filter({ hasText: 'Mes séances' })).toContainText('Bras');
+    // Renommer une séance déjà faite : ses séances passées prennent le nouveau nom
+    await page.getByRole('button', { name: /^Push/ }).first().click();
+    await field.fill('Pecs épaules');
+    await field.press('Enter');
+    await page.mouse.click(200, 20);
+    await page.getByRole('navigation').getByText('Progrès').click();
+    await expect(page.locator('section').filter({ hasText: 'Dernières séances' })).toContainText('Pecs épaules');
+    await expect(page.locator('section').filter({ hasText: 'Dernières séances' })).not.toContainText('Push');
+  });
+});

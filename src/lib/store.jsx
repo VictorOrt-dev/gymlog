@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { serializeBackup } from './backup';
-import { applySupersets } from './session';
+import { applySupersets, renameTemplateIn } from './session';
 import { norm } from './training';
 import { CUSTOM_GROUP, DEFAULT_REST, initialState, migrate, planFromChoice, templateFromModel, uid } from './defaults';
 
@@ -117,6 +117,7 @@ export function StoreProvider({ children }) {
             ? s.templates.map((t) => (t.id === tpl.id ? tpl : t))
             : [...s.templates, tpl],
         })),
+      renameTemplate: (id, name) => set((s) => renameTemplateIn(s, id, name)),
       deleteTemplate: (id) =>
         set((s) => ({
           ...s,

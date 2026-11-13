@@ -120,3 +120,20 @@ export function moveSessionToDay(session, dayTs) {
     items: session.items.map((it) => ({ ...it, sets: it.sets.map((s) => (s.at == null ? s : { ...s, at: s.at + delta })) })),
   };
 }
+
+/**
+ * Renomme une séance type, et avec elle son historique et la séance en cours qui en viennent :
+ * « Nouvelle séance » devenue « Bras » s'appelle « Bras » partout. Nom vide → on garde l'ancien.
+ */
+export function renameTemplateIn(state, templateId, rawName) {
+  const name = rawName.trim().slice(0, 40);
+  const tpl = state.templates.find((t) => t.id === templateId);
+  if (!tpl || !name || name === tpl.name) return state;
+  const drafts = Object.fromEntries(Object.entries(state.drafts).map(([pid, d]) => [pid, d?.templateId === templateId ? { ...d, name } : d]));
+  return {
+    ...state,
+    templates: state.templates.map((t) => (t.id === templateId ? { ...t, name } : t)),
+    sessions: state.sessions.some((x) => x.templateId === templateId) ? state.sessions.map((x) => (x.templateId === templateId ? { ...x, name } : x)) : state.sessions,
+    drafts,
+  };
+}

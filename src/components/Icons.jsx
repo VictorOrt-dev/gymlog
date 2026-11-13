@@ -17,6 +17,7 @@ export const Play = ({ className = 'h-6 w-6' }) => (
   </svg>
 );
 export const ChevronRight = (p) => <Icon d="M9 5l7 7-7 7" {...p} />;
+export const Pencil = (p) => <Icon d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4" {...p} />;
 export const Trash = (p) => <Icon d="M4 7h16M9 7V4.5h6V7M6.5 7l1 12.5h9l1-12.5M10 11v5M14 11v5" {...p} />;
 // Onglets
 export const TabTrain = (p) => <Icon d="M6.5 7v10M17.5 7v10M3.5 9.5v5M20.5 9.5v5M6.5 12h11" strokeWidth={2} {...p} />;
