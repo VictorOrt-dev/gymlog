@@ -3,6 +3,7 @@ import Home from './components/Home';
 import Onboarding from './components/Onboarding';
 import ProgressTab from './components/ProgressTab';
 import TabBar from './components/TabBar';
+import UpdatePill from './components/UpdatePill';
 import SessionLogger from './components/SessionLogger';
 import SessionSummary from './components/SessionSummary';
 import SharedTemplate from './components/SharedTemplate';
@@ -57,6 +58,7 @@ function Shell() {
         </>
       )}
       <SessionSummary data={summary} onClose={() => setSummary(null)} />
+      <UpdatePill hidden={(hasDraft && inSession) || !!summary} />{/* jamais en pleine séance ni sur le récap */}
       <SharedTemplate />
     </>
   );

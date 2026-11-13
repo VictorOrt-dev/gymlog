@@ -199,3 +199,29 @@ test('Réglages affichent la date de la version', async ({ page }) => {
   await page.getByRole('button', { name: 'Réglages et sauvegarde' }).click();
   await expect(page.getByText(/^Version du \d+ \S+ à \d{2}:\d{2}$/)).toBeVisible();
 });
+
+test.describe('nouvelle version détectée', () => {
+  test.use({ serviceWorkers: 'block' }); // pour simuler la version en ligne
+
+  test('un bouton « Recharger » apparaît, jamais en pleine séance', async ({ page }) => {
+    await seed(page);
+    await page.route(/\?maj=/, (route) => route.fulfill({ contentType: 'text/html', body: '<script type="module" crossorigin src="./assets/index-NOUVELLE.js"></script>' }));
+    const pill = page.getByRole('status').filter({ hasText: 'Mise à jour' });
+    await expect(pill).toBeVisible({ timeout: 10_000 });
+    await expect(pill.getByRole('button', { name: 'Recharger' })).toBeVisible();
+    // En séance : masqué, pour ne jamais gêner
+    await page.getByRole('button', { name: 'Démarrer Push' }).click();
+    await expect(pill).toHaveCount(0);
+    await page.getByRole('button', { name: /Retour à l'accueil/ }).click();
+    await expect(pill).toBeVisible();
+    // « Plus tard » : on ne le revoit pas avant la prochaine ouverture
+    await pill.getByRole('button', { name: 'Plus tard' }).click();
+    await expect(pill).toHaveCount(0);
+  });
+
+  test('pas de bouton quand l’app est déjà à jour', async ({ page }) => {
+    await seed(page);
+    await page.waitForTimeout(4500);
+    await expect(page.getByRole('status').filter({ hasText: 'Mise à jour' })).toHaveCount(0);
+  });
+});
