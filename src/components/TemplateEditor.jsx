@@ -3,14 +3,16 @@ import { encodeTemplate, templateLink } from '../lib/share';
 import { useStore } from '../lib/store';
 import { useToast } from './Toast';
 import ExercisePicker from './ExercisePicker';
+import ExerciseSettings from './ExerciseSettings';
 import Sheet from './Sheet';
-import { Close, Pencil, Plus, Up } from './Icons';
+import { ChevronRight, Close, Pencil, Plus, Up } from './Icons';
 
 /** Éditer une séance type : renommer, ajouter, remonter, retirer. Chaque changement est enregistré direct. */
 export default function TemplateEditor({ template, isNew = false, onClose }) {
   const { state, saveTemplate, deleteTemplate, renameTemplate } = useStore();
   const notify = useToast();
   const [picking, setPicking] = useState(false);
+  const [settingsOf, setSettingsOf] = useState(null); // exercice dont on règle le nom, la fourchette, la note
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [name, setName] = useState(template?.name ?? '');
   useEffect(() => setName(template?.name ?? ''), [template?.id, template?.name]);
@@ -56,9 +58,12 @@ export default function TemplateEditor({ template, isNew = false, onClose }) {
         </p>
         <div className="overflow-hidden rounded-2xl bg-fill">
           {ids.map((id, i) => (
-            <div key={id} className="sep flex h-12 items-center gap-1 pl-4 pr-1">
-              <span className="w-6 font-num text-[13px] tabular-nums text-muted">{i + 1}</span>
-              <span className="min-w-0 flex-1 truncate text-[17px]">{names[id] ?? '—'}</span>
+            <div key={id} className="sep flex h-12 items-center gap-1 pr-1">
+              <button onClick={() => setSettingsOf(id)} aria-label={`Modifier ${names[id] ?? 'l’exercice'} : nom, fourchette, note`} className="flex h-12 min-w-0 flex-1 items-center gap-1 pl-4 text-left active:opacity-60">
+                <span className="w-6 shrink-0 font-num text-[13px] tabular-nums text-muted">{i + 1}</span>
+                <span className="min-w-0 flex-1 truncate text-[17px]">{names[id] ?? '—'}</span>
+                <ChevronRight className="h-4 w-4 shrink-0 text-faint" />
+              </button>
               {i > 0 && (
                 <button onClick={() => moveUp(i)} aria-label="Monter" className={iconBtn}>
                   <Up className="h-5 w-5" />
@@ -73,6 +78,7 @@ export default function TemplateEditor({ template, isNew = false, onClose }) {
             <Plus className="h-5 w-5" /> Ajouter un exercice
           </button>
         </div>
+        {ids.length > 0 && <p className="mt-2 px-4 text-[13px] text-muted">Touche un exercice pour le renommer, régler sa fourchette ou sa note.</p>}
         <button onClick={onClose} className="mt-6 h-[52px] w-full rounded-full bg-pink text-[17px] font-semibold text-white active:opacity-80">
           Terminé
         </button>
@@ -103,6 +109,13 @@ export default function TemplateEditor({ template, isNew = false, onClose }) {
           {confirmDelete ? 'Toucher encore pour supprimer' : 'Supprimer la séance'}
         </button>
       </Sheet>
+      <Sheet open={settingsOf != null} onClose={() => setSettingsOf(null)} title={names[settingsOf] ?? ''}>
+        {settingsOf != null && <ExerciseSettings exerciseId={settingsOf} />}
+        <button onClick={() => setSettingsOf(null)} className="h-[52px] w-full rounded-full bg-pink text-[17px] font-semibold text-white active:opacity-80">
+          OK
+        </button>
+      </Sheet>
+
       <ExercisePicker open={picking} onClose={() => setPicking(false)} exclude={ids} onPick={(id) => update({ exerciseIds: [...ids, id] })} />
     </>
   );

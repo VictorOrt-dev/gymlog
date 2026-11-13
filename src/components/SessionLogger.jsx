@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { DEFAULT_REST, RANGES } from '../lib/defaults';
+import { DEFAULT_REST } from '../lib/defaults';
 import { useNow, useRestTimer, useWakeLock } from '../lib/hooks';
 import { linkSuperset, moveItem, removeItem, replaceItem, supersetOf, supersetPairs, unlinkSuperset } from '../lib/session';
 import { useStore } from '../lib/store';
@@ -7,6 +7,7 @@ import { sessionProgress } from '../lib/stats';
 import { buildSummary } from '../lib/summary';
 import { historySets, isStalling, lastPerformances, mmss, seriesFor, work } from '../lib/training';
 import ExerciseCard from './ExerciseCard';
+import ExerciseSettings from './ExerciseSettings';
 import ExercisePicker from './ExercisePicker';
 import ProgressDetail from './ProgressDetail';
 import RestTimer from './RestTimer';
@@ -30,7 +31,7 @@ const firstIncomplete = (items) => Math.max(0, items.findIndex((it) => !it.sets.
  * En binôme : un tap sur l'avatar du pote, et on passe sur SA séance (son exercice ouvert, son chrono).
  */
 export default function SessionLogger({ onExit, onFinished }) {
-  const { state, setDraft, finishSession, setExerciseRest, setExerciseRange, setNote, rememberSupersets } = useStore();
+  const { state, setDraft, finishSession, setExerciseRest, rememberSupersets } = useStore();
   const pid = state.profileId;
   const draft = state.drafts[pid];
   const items = draft?.items ?? [];
@@ -272,39 +273,8 @@ export default function SessionLogger({ onExit, onFinished }) {
               Exercice {menu + 1} sur {items.length}
               {menuDone > 0 && ` · ${menuDone} série${menuDone > 1 ? 's' : ''} faite${menuDone > 1 ? 's' : ''}`}
             </p>
-            {/* Réglages de l'exercice : on les fixe une fois */}
-            <p className="mb-1.5 px-1 text-[13px] font-medium text-muted">Fourchette de reps</p>
-            <div className="mb-1 grid grid-cols-6 gap-1" role="radiogroup" aria-label="Fourchette de reps">
-              {RANGES.map(([a, b]) => {
-                const ex = byId[menuItem.exerciseId];
-                const on = ex?.range?.[0] === a && ex?.range?.[1] === b;
-                return (
-                  <button
-                    key={a}
-                    role="radio"
-                    aria-checked={on}
-                    onClick={() => setExerciseRange(menuItem.exerciseId, [a, b])}
-                    className={`h-11 rounded-xl font-num text-[15px] font-semibold ${on ? 'bg-pink text-white' : 'bg-fill text-white active:bg-fill-hi'}`}
-                  >
-                    {a}–{b}
-                  </button>
-                );
-              })}
-            </div>
-            <p className="mb-3 px-1 text-[13px] leading-snug text-muted">Monte les reps jusqu’en haut sur toutes tes séries principales, puis charge et repars du bas.</p>
-            <label className="mb-4 block">
-              <span className="mb-1.5 block px-1 text-[13px] font-medium text-muted">Note (réglage machine, prise…)</span>
-              <input
-                key={menuItem.exerciseId}
-                defaultValue={notes[menuItem.exerciseId] ?? ''}
-                maxLength={120}
-                onBlur={(e) => setNote(menuItem.exerciseId, e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-                placeholder="Ex. : siège cran 4, prise neutre"
-                enterKeyHint="done"
-                className="h-11 w-full rounded-xl bg-fill px-3.5 text-[16px] outline-none placeholder:text-muted focus:ring-1 focus:ring-pink/60"
-              />
-            </label>
+            {/* Réglages de l'exercice : nom, fourchette, note (les mêmes que dans les séances types) */}
+            <ExerciseSettings exerciseId={menuItem.exerciseId} />
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => move(menu, -1)}

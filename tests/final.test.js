@@ -52,3 +52,12 @@ describe('Renommer une séance type', async () => {
     expect(renameTemplateIn(state, 't2', 'Legs')).toBe(state);
   });
 });
+
+describe('Renommer un exercice', async () => {
+  const { exerciseNameError } = await import('../src/lib/defaults');
+  const ex = [{ id: 'squat', name: 'Squat' }, { id: 'dc', name: 'Développé couché' }];
+  it('accepte une variante', () => expect(exerciseNameError(ex, 'dc', 'Développé couché prise serrée')).toBeNull());
+  it('accepte de garder son propre nom', () => expect(exerciseNameError(ex, 'dc', 'developpe couche')).toBeNull());
+  it('refuse un nom vide', () => expect(exerciseNameError(ex, 'dc', '   ')).toMatch(/nom/));
+  it('refuse le nom d’un autre exercice (accents et majuscules ignorés)', () => expect(exerciseNameError(ex, 'dc', ' SQUAT ')).toBe('« Squat » existe déjà.'));
+});

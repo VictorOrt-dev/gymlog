@@ -99,6 +99,8 @@ export function StoreProvider({ children }) {
       setExerciseRest: (id, rest) =>
         set((s) => ({ ...s, exercises: s.exercises.map((e) => (e.id === id ? { ...e, rest } : e)) })),
 
+      /** Renomme un exercice (l'historique suit : il est lié à l'identifiant, pas au nom). */
+      renameExercise: (id, name) => set((s) => ({ ...s, exercises: s.exercises.map((e) => (e.id === id ? { ...e, name: name.trim().slice(0, 50) } : e)) })),
       setExerciseRange: (id, range) =>
         set((s) => ({ ...s, exercises: s.exercises.map((e) => (e.id === id ? { ...e, range } : e)) })),
       /** Note persistante par exercice ET par profil (chacun ses réglages de machine). */

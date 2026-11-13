@@ -189,6 +189,15 @@ export function seedProfile(name) {
  * Planning issu du premier lancement : les séances gardées, distribuées dans l'ordre sur les jours choisis
  * (3 jours + Push/Pull/Legs → L Push, M Pull, V Legs ; 4 jours + Upper/Lower → U L U L).
  */
+/** Un nom d'exercice valable : non vide, et pas déjà porté par un autre exercice (accents et majuscules ignorés). → message ou null */
+export function exerciseNameError(exercises, id, rawName) {
+  const name = rawName.trim();
+  if (!name) return 'Donne un nom à l’exercice.';
+  const n = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const twin = exercises.find((e) => e.id !== id && e.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim() === n);
+  return twin ? `« ${twin.name} » existe déjà.` : null;
+}
+
 export function planFromChoice(days, templateIds) {
   const plan = Array(7).fill(null);
   if (!templateIds.length) return plan;

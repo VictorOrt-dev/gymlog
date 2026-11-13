@@ -97,3 +97,32 @@ test.describe('renommer', () => {
     await expect(page.locator('section').filter({ hasText: 'Dernières séances' })).not.toContainText('Push');
   });
 });
+
+test.describe('renommer un exercice', () => {
+  test.beforeEach(async ({ page }) => seed(page));
+
+  test('depuis une séance type : le nom change partout, l’historique reste', async ({ page }) => {
+    await page.getByRole('button', { name: /^Push/ }).first().click();
+    await page.getByRole('button', { name: /^Modifier Développé couché/ }).click();
+    const field = page.getByRole('textbox', { name: 'Nom de l’exercice' });
+    await field.fill('Squat');
+    await expect(page.getByRole('alert')).toHaveText('« Squat » existe déjà.'); // pas de doublon
+    await field.fill('Développé couché pause 1 s');
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    await page.getByRole('button', { name: 'OK' }).click();
+    await page.getByRole('button', { name: 'Terminé' }).click();
+    await page.getByRole('button', { name: 'Démarrer Push' }).click();
+    const card = page.locator('main section').first();
+    await expect(card).toContainText('Développé couché pause 1 s');
+    await expect(card).toContainText('82,5 kg × 5'); // l'objectif vient toujours de l'historique
+  });
+
+  test('depuis la séance, dans « ⋯ »', async ({ page }) => {
+    await page.getByRole('button', { name: 'Démarrer Push' }).click();
+    await page.locator('main section').filter({ hasText: 'Développé militaire' }).getByRole('button', { expanded: false }).first().click();
+    await page.getByRole('button', { name: /^Réglages de Développé militaire/ }).click();
+    await page.getByRole('textbox', { name: 'Nom de l’exercice' }).fill('Développé militaire debout');
+    await page.mouse.click(200, 20);
+    await expect(page.locator('main')).toContainText('Développé militaire debout');
+  });
+});
