@@ -35,7 +35,7 @@ test.describe('avec historique', () => {
     await tap(page, 'button:has-text("Valider la série 1")');
     await finishSession(page);
     const summary = page.getByRole('dialog', { name: 'Récapitulatif de la séance' });
-    await expect(summary).toContainText(/Durée · ≈ \d+ kcal/); // calories estimées
+    await expect(summary).toContainText(/≈ \d+ kcalCalories actives/); // une vraie case pour les calories
     await expect(summary).toContainText('un poids de 75 kg'); // sans poids de corps : hypothèse affichée
     await summary.getByRole('radio', { name: 'Hier' }).click();
     await expect(page.getByRole('status').filter({ hasText: 'Séance rangée au' })).toBeVisible();

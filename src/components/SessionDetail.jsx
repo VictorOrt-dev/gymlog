@@ -139,12 +139,13 @@ export default function SessionDetail({ session, onClose, onDelete }) {
         }}
       />
 
-      <div className="mt-4 grid grid-cols-3 gap-2">
+      <div className="mt-4 grid grid-cols-2 gap-2">
         <Stat label="Durée" value={`${minutes} min`} />
+        <Stat label="kcal actives" value={`≈ ${energy.kcal}`} />
         <Stat label="Séries" value={sets} />
         <Stat label="Tonnage (kg)" value={volume ? fmtInt(volume) : '—'} />
       </div>
-      <p className="mt-2 px-1 text-[13px] text-muted">≈ {energy.kcal} kcal actives (estimation{energy.assumedBw ? ' sur 75 kg' : ''})</p>
+      {energy.assumedBw && <p className="mt-2 px-1 text-[13px] text-muted">Calories estimées sur 75 kg : indique ton poids dans Réglages pour les affiner.</p>}
 
       <p className="mt-4 px-1 text-[13px] text-muted">Une erreur de saisie ? Touche la série pour la corriger : objectifs, records et courbes suivent.</p>
 

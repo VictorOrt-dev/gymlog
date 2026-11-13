@@ -71,10 +71,18 @@ export default function SessionSummary({ data, onClose }) {
         )}
 
         <div className="mt-5 grid grid-cols-2 gap-2">
-          <Tile label={energy ? `Durée · ≈ ${energy.kcal} kcal` : 'Durée'} value={`${s.minutes} min`} />
+          <Tile label="Durée" value={`${s.minutes} min`} />
+          {energy && (
+            <div className="rounded-2xl bg-card px-3.5 py-3">
+              <div className="font-num text-[24px] font-bold leading-tight">
+                ≈ {energy.kcal} <span className="text-[15px] text-muted">kcal</span>
+              </div>
+              <div className="mt-0.5 text-[13px] text-muted">Calories actives</div>
+            </div>
+          )}
           <Tile label="Séries de travail" value={s.sets} />
           <Tile label={s.records > 1 ? 'Records battus' : 'Record battu'} value={s.records} accent={s.records > 0} />
-          <div className="rounded-2xl bg-card px-3.5 py-3">
+          <div className={`rounded-2xl bg-card px-3.5 py-3 ${energy ? 'col-span-2' : ''}`}>
             <div className="font-num text-[24px] font-bold leading-tight">
               {fmtInt(s.kg)} <span className="text-[15px] text-muted">kg</span>
             </div>
@@ -89,7 +97,7 @@ export default function SessionSummary({ data, onClose }) {
 
         {energy && (
           <p className="mt-2 px-1 text-[13px] leading-snug text-muted">
-            ≈ {energy.kcal} kcal actives : estimation d’après la durée, ton effort et {energy.assumedBw ? 'un poids de 75 kg (indique le tien dans Réglages pour l’affiner)' : 'ton poids de corps'}. Ordre de grandeur, ±30 %.
+            Calories : estimation d’après la durée, ton effort et {energy.assumedBw ? 'un poids de 75 kg (indique le tien dans Réglages pour l’affiner)' : 'ton poids de corps'}. Ordre de grandeur, ±30 %.
           </p>
         )}
 
