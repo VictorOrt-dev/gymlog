@@ -26,7 +26,7 @@ test('séance : objectif, record en direct, échauffement court, récapitulatif'
 test('forme du jour : « Fatigué » allège l’objectif', async ({ page }) => {
   await page.getByRole('button', { name: 'Démarrer Push' }).click();
   const card = page.locator('main section').filter({ hasText: 'Développé couché' }).first();
-  await expect(card).toContainText('82,5 kg × 5'); // fourchette 5–8 atteinte : on charge
+  await expect(card).toContainText('82,5 kg × 6'); // 1re série en haut de 5–8 : on charge, 6 reps calculées
   await page.getByRole('radio', { name: 'Fatigué' }).click();
   await expect(card).toContainText('Jour sans');
   await expect(card).toContainText('75 kg × 8');

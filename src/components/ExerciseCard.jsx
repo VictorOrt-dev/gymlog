@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { fmtKg, liveRecords, main, recordBook, recordOf, roundTo, setTargets, summarize, target, trend } from '../lib/training';
+import { effortOf } from '../lib/defaults';
+import { AIM_RIR, fmtKg, liveRecords, main, recordBook, recordOf, roundTo, setTargets, summarize, target, trend } from '../lib/training';
 import EntryPad from './exercise/EntryPad';
 import ExtraSets from './exercise/ExtraSets';
 import SetTable from './exercise/SetTable';
@@ -39,18 +40,20 @@ export default function ExerciseCard({ exercise, item, prev, history = [], note,
   const nM = mains.length;
   const prevSets = prev?.sets ?? []; // séries principales de la dernière fois
   const range = exercise.range ?? [8, 12];
-  const goal = useMemo(() => target(prevSets, { inc: exercise.inc, range, form, deload }), [prev, exercise.inc, range[0], range[1], form, deload]); // eslint-disable-line react-hooks/exhaustive-deps
+  const effort = effortOf(exercise); // gros polyarticulaire : 1–2 RIR ; machine / isolation : 0–1
+  const aimRir = AIM_RIR[effort][1];
+  const goal = useMemo(() => target(prevSets, { inc: exercise.inc, range, form, deload, effort }), [prev, exercise.inc, range[0], range[1], form, deload, effort]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const lastMain = mains.at(-1)?.s;
-  const tOpts = { inc: exercise.inc, range };
+  const tOpts = { inc: exercise.inc, range, effort };
   // Objectif série par série : recalculé après chaque série (ratée → on allège, trop facile → on pousse)
   const targets = useMemo(() => setTargets(goal, main(sets), tOpts), [goal, sets, exercise.inc]); // eslint-disable-line react-hooks/exhaustive-deps
   const nextTarget = targets[nM];
   /** Valeurs proposées pour la prochaine série principale : l'objectif ajusté, le RIR de la dernière série. */
   const workEntry = (list = main(sets)) => {
     const t = setTargets(goal, list, tOpts)[list.length];
-    const rir = list.at(-1)?.rir ?? 2;
-    return t ? { w: t.w, r: t.r, rir } : { w: 20, r: range[0], rir: 2 };
+    const rir = list.at(-1)?.rir ?? aimRir; // 1re série : pré-rempli au RIR visé
+    return t ? { w: t.w, r: t.r, rir } : { w: 20, r: range[0], rir: aimRir };
   };
   const warmEntry = (count) => {
     const base = goal?.w ?? lastMain?.w ?? 20;
@@ -149,7 +152,7 @@ export default function ExerciseCard({ exercise, item, prev, history = [], note,
   const records = useMemo(() => liveRecords(sets, history), [sets, history]);
   const entryIsRecord = editing == null && mode === 'work' && !!recordOf({ ...entry }, recordBook([...history, ...main(sets)]));
   const nextRef = prevSets[nM];
-  const rowsWanted = deload ? Math.max(1, prevSets.length - 1) : prevSets.length; // décharge : une série de moins
+  const rowsWanted = deload ? Math.ceil(prevSets.length / 2) : prevSets.length; // décharge : moitié des séries
   const softGoal = goal && (goal.mode === 'low' || goal.mode === 'deload');
   const message =
     editing != null || mode !== 'work'

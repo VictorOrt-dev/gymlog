@@ -14,7 +14,7 @@ test('corriger une séance passée recalcule l’objectif', async ({ page }) => 
   await page.mouse.click(200, 20);
   await page.getByRole('navigation').getByText('Entraînement').click();
   await page.getByRole('button', { name: 'Démarrer Push' }).click();
-  await expect(page.locator('main section').filter({ hasText: 'Développé couché' }).first()).toContainText('92,5 kg × 5'); // 90 × 8 corrigé : haut de fourchette atteint → on charge
+  await expect(page.locator('main section').filter({ hasText: 'Développé couché' }).first()).toContainText('92,5 kg × 6'); // 90 × 8 corrigé : 1re série en haut → on charge, reps calculées
 });
 
 test('volume par muscle et records par reps', async ({ page }) => {

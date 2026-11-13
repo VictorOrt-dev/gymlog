@@ -45,29 +45,58 @@ export function trend(set, ref) {
 }
 
 /**
- * Objectif du jour — double progression par fourchette (ex. 8–12) :
- *  - toutes les séries principales ont atteint le haut de la fourchette → on charge et on repart du bas ;
- *  - sinon → même charge, +1 rep (sans dépasser le haut) ;
- *  - sous le bas de la fourchette → même charge, on vise le bas.
- * Autorégulation : `form` = 'low' (jour sans : −5 %, entretien) | 'high' (en forme : on charge un cran plus tôt).
- * Décharge : −10 % à reps égales.
+ * Effort visé, selon le mouvement (proximité de l'échec, en reps en réserve) :
+ *  - « lourd » (gros polyarticulaires : squat, soulevé de terre, développés, rowings barre…) : 1–2 RIR.
+ *    Le muscle grossit autant entre 0 et 3 RIR ; l'échec y coûte cher en fatigue et en technique.
+ *  - « léger » (machines, poulies, isolation) : 0–1 RIR, l'échec est sans risque et peu fatigant.
  */
-export function target(prevSets, { inc = 2.5, range = [8, 12], form = 'ok', deload = false } = {}) {
+export const AIM_RIR = { heavy: [1, 2], light: [0, 1] };
+export const rirAimText = (effort = 'light') => `${AIM_RIR[effort][0]}–${AIM_RIR[effort][1]} reps en réserve`;
+
+/** Reps faisables à la charge w en gardant `rir` reps en réserve, d'après le 1RM estimé d'une série (Epley inversé). */
+export function repsAt(set, w, rir = 0) {
+  if (!(w > 0)) return 0;
+  return Math.floor(30 * (e1rm(set) / w - 1) - rir + 1e-9);
+}
+
+/**
+ * Objectif du jour — progression pilotée par la 1RE série principale (la seule faite sans fatigue accumulée) :
+ *  - 1re série en haut de la fourchette → on charge, et les reps visées sont CALCULÉES à la nouvelle charge
+ *    (1RM estimé, RIR visé) au lieu de repartir du bas : 80 × 12 → 82,5 × 10, pas 82,5 × 8 ;
+ *  - si le cran suivant est un trop gros saut (haltères : 8 → 10 kg = +25 %) → encore une rep avant de charger ;
+ *  - sinon → même charge, +1 rep sur la 1re série (+2 si elle était trop facile) ; sous le bas → on vise le bas.
+ * Les séries suivantes s'ajustent en direct (setTargets) : la fatigue normale n'empêche plus de charger.
+ * Autorégulation : `form` = 'low' (jour sans : −5 %) | 'high' (en forme : on charge un rep plus tôt).
+ * Décharge : moitié des séries, charge −5 %, 3–4 reps de l'échec (on baisse le volume, pas l'intensité).
+ */
+export function target(prevSets, { inc = 2.5, range = [8, 12], form = 'ok', deload = false, effort = 'light' } = {}) {
   const sets = main(prevSets ?? []);
   if (!sets.length) return null;
   const [lo, hi] = range;
   const top = sets[0];
-  if (deload) return { w: top.w > 0 ? roundTo(top.w * 0.9, inc) : 0, r: top.r, why: 'Semaine de décharge : −10 %, une série de moins', mode: 'deload' };
+  const rirMax = (AIM_RIR[effort] ?? AIM_RIR.light)[1];
+  const tail = ` · ${rirAimText(effort)}`;
+  if (deload) return { w: top.w > 0 ? roundTo(top.w * 0.95, inc) : 0, r: top.r, why: 'Décharge : moitié des séries, −5 %, arrête-toi à 3–4 reps de l’échec', mode: 'deload' };
   if (form === 'low') return { w: top.w > 0 ? roundTo(top.w * 0.95, inc) : 0, r: top.r, why: 'Jour sans : −5 %, on entretient sans se cramer', mode: 'low' };
-  const charge = () => ({ w: round(top.w + inc), r: lo });
-  if (sets.every((s) => s.r >= hi)) {
-    if (top.w > 0) return { ...charge(), why: `Haut de fourchette (${hi}) atteint : on charge, on repart à ${lo}` };
-    return { w: 0, r: hi, why: `${hi} reps partout : ajoute du lest ou passe à une variante plus dure` };
+  const rir = top.rir ?? rirMax;
+  const easy = rir >= rirMax + 2; // nettement plus de marge que visé
+  if (top.w === 0) {
+    if (top.r >= hi) return { w: 0, r: hi, why: `${hi} reps en 1re série : ajoute du lest ou passe à une variante plus dure` };
+    const r = Math.min(hi, top.r + (easy ? 2 : 1));
+    return { w: 0, r, why: `+${r - top.r} rep${r - top.r > 1 ? 's' : ''} sur la 1re série${tail}` };
   }
-  if (form === 'high' && top.w > 0 && sets.every((s) => s.r >= hi - 1)) return { ...charge(), why: `En forme : on charge un cran plus tôt, repars à ${lo}`, mode: 'high' };
-  if (top.r < lo) return { w: top.w, r: lo, why: `Vise le bas de ta fourchette (${lo}–${hi}) à cette charge` };
-  const r = Math.min(hi, top.r + 1);
-  return { w: top.w, r, why: r === hi ? `Dernière marche : ${hi} reps, puis on charge` : `+1 rep, objectif ${hi} reps avant de charger` };
+  const early = form === 'high' || easy;
+  if (top.r >= hi || (early && top.r >= hi - 1)) {
+    const w = round(top.w + inc);
+    const r = Math.min(hi, repsAt(top, w, rirMax));
+    const why = top.r >= hi ? `1re série à ${top.r} reps` : form === 'high' ? 'En forme' : 'Dernière fois trop facile';
+    if (r >= lo) return { w, r, why: `${why} : +${fmtW(inc)} kg${tail}`, ...(top.r < hi ? { mode: 'high' } : {}) };
+    if (top.r < hi + 3) return { w: top.w, r: top.r + 1, why: `+${fmtW(inc)} kg ferait chuter sous ${lo} reps : encore une rep avant de charger${tail}` };
+    return { w, r: Math.max(1, r), why: `On charge (+${fmtW(inc)} kg), malgré un gros saut${tail}` };
+  }
+  if (top.r < lo) return { w: top.w, r: lo, why: `Vise le bas de ta fourchette (${lo}–${hi}) à cette charge${tail}` };
+  const r = Math.min(hi, top.r + (easy ? 2 : 1));
+  return { w: top.w, r, why: (r === hi ? `Dernière marche : ${hi} reps en 1re série, puis on charge` : `+${r - top.r} rep${r - top.r > 1 ? 's' : ''} sur la 1re série, objectif ${hi}`) + tail };
 }
 
 /**
@@ -207,14 +236,15 @@ export function liveRecords(todaySets, history) {
  * Série 1 : l'objectif de séance (double progression). Ensuite, on suit ce qui se passe vraiment :
  *  - vraie chute (3 reps ou plus sous l'objectif) → −5 % de charge (au moins un cran), ~2 reps de plus visées ;
  *  - échec → même charge, une rep de moins que celles qu'on vient de faire (jamais plus après un échec) ;
- *  - trop facile (RIR ≥ 3, objectif atteint) → +1 rep, ou +1 cran en haut de fourchette ;
+ *  - trop facile (2 reps de marge de plus que visé, objectif atteint) → +1 rep, ou +1 cran en haut de fourchette ;
  *  - sinon → même charge, mêmes reps que la série faite.
  * Perdre 1 à 2 reps d'une série à l'autre à l'échec, c'est de la fatigue normale : la charge ne baisse pas.
  * La fourchette ne s'impose pas pendant la séance : elle décide seulement quand charger la séance suivante.
  * Renvoie un tableau de longueur sets.length + 1 : la dernière case est l'objectif de la PROCHAINE série.
  */
-export function setTargets(goal, todayMain, { inc = 2.5, range = [8, 12] } = {}) {
+export function setTargets(goal, todayMain, { inc = 2.5, range = [8, 12], effort = 'light' } = {}) {
   const hi = range[1];
+  const rirMax = (AIM_RIR[effort] ?? AIM_RIR.light)[1];
   const out = [];
   let t = goal ? { w: goal.w, r: goal.r, why: null } : null;
   for (let k = 0; k <= todayMain.length; k++) {
@@ -225,9 +255,16 @@ export function setTargets(goal, todayMain, { inc = 2.5, range = [8, 12] } = {})
         const w = Math.max(0, Math.min(roundTo(last.w * 0.95, inc), last.w - inc));
         t = { w, r: Math.min(aim.r, last.r + 2), why: `Série ${k} : ${aim.r - last.r} reps sous l’objectif, ${fmtW(last.w - w)} kg de moins` };
       } else if (last.rir === 0) {
-        t = { w: last.w, r: Math.max(1, last.r - 1), why: `Échec à la série ${k} : une rep de moins, même charge` };
-      } else if ((last.rir ?? 0) >= 3 && last.r >= aim.r) {
-        t = last.r >= hi && last.w > 0 ? { w: round(last.w + inc), r: last.r, why: `Série ${k} trop facile : on charge` } : { w: last.w, r: last.r + 1, why: `Série ${k} trop facile : +1 rep` };
+        t = {
+          w: last.w,
+          r: Math.max(1, last.r - 1),
+          why: effort === 'heavy' ? `Échec à la série ${k} : une rep de moins. Ici, 1–2 reps en réserve suffisent pour le muscle` : `Échec à la série ${k} : une rep de moins, même charge`,
+        };
+      } else if ((last.rir ?? 0) >= rirMax + 2 && last.r >= aim.r) {
+        if (last.r >= hi && last.w > 0) {
+          const w = round(last.w + inc);
+          t = { w, r: Math.max(1, Math.min(last.r, repsAt(last, w, rirMax))), why: `Série ${k} trop facile : on charge` };
+        } else t = { w: last.w, r: last.r + 1, why: `Série ${k} trop facile : +1 rep` };
       } else {
         t = { w: last.w, r: last.r, why: null };
       }

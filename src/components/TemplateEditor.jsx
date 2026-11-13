@@ -110,7 +110,17 @@ export default function TemplateEditor({ template, isNew = false, onClose }) {
         </button>
       </Sheet>
       <Sheet open={settingsOf != null} onClose={() => setSettingsOf(null)} title={names[settingsOf] ?? ''}>
-        {settingsOf != null && <ExerciseSettings exerciseId={settingsOf} />}
+        {settingsOf != null && (
+          <ExerciseSettings
+            exerciseId={settingsOf}
+            exclude={ids}
+            swapLabel="Remplacer dans la séance type"
+            onSwap={(id) => {
+              update({ exerciseIds: ids.map((x) => (x === settingsOf ? id : x)) });
+              setSettingsOf(null);
+            }}
+          />
+        )}
         <button onClick={() => setSettingsOf(null)} className="h-[52px] w-full rounded-full bg-pink text-[17px] font-semibold text-white active:opacity-80">
           OK
         </button>

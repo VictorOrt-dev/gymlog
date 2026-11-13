@@ -199,6 +199,34 @@ export function exerciseNameError(exercises, id, rawName) {
   return twin ? `« ${twin.name} » existe déjà.` : null;
 }
 
+// ── Effort visé et variantes biomécaniques ───────────────────────────────────
+
+const LIB_REST = new Map(Object.values(LIBRARY).flat().map(([name, , rest]) => [slug(name), rest]));
+/** « Lourd » (gros polyarticulaire, repos long dans la bibliothèque) ou « léger » (machine, poulie, isolation). */
+export const effortOf = (ex) => ((LIB_REST.get(ex?.id) ?? ex?.rest ?? DEFAULT_REST) >= 150 ? 'heavy' : 'light');
+
+/**
+ * Suggestions, jamais imposées : un exercice voisin mieux placé mécaniquement (surtout : de la tension quand le muscle
+ * est étiré), ou un réglage. Le meilleur exercice reste celui qu'on aime et qu'on fait avec régularité.
+ */
+export const BIOMECH = {
+  'extension-triceps-poulie': { alt: 'extension-triceps-au-dessus-de-la-tete', why: 'Bras au-dessus de la tête : la longue portion du triceps travaille étirée. Une étude y mesure nettement plus de croissance.' },
+  'extension-triceps-corde': { alt: 'extension-triceps-au-dessus-de-la-tete', why: 'Bras au-dessus de la tête : la longue portion du triceps travaille étirée. Une étude y mesure nettement plus de croissance.' },
+  'kickback-haltere': { alt: 'extension-triceps-au-dessus-de-la-tete', why: 'Le kickback ne charge presque pas le triceps quand il est étiré ; au-dessus de la tête, si.' },
+  'leg-curl': { alt: 'leg-curl-assis', why: 'Assis, hanche fléchie : les ischios travaillent plus étirés. Plus de croissance mesurée qu’allongé.' },
+  'curl-barre': { alt: 'curl-incline-halteres', why: 'Bras derrière le corps : le biceps est chargé étiré, en bas du mouvement, là où le curl debout ne charge presque pas.' },
+  'curl-halteres': { alt: 'curl-incline-halteres', why: 'Bras derrière le corps : le biceps est chargé étiré, en bas du mouvement, là où le curl debout ne charge presque pas.' },
+  'curl-concentre': { alt: 'curl-incline-halteres', why: 'Bras derrière le corps : le biceps est chargé étiré, en bas du mouvement.' },
+  'elevations-laterales': { alt: 'elevations-laterales-poulie', why: 'La poulie garde la tension en bas du mouvement, là où l’haltère n’en donne presque pas.' },
+  'rowing-menton': { alt: 'elevations-laterales-poulie', why: 'Même deltoïde latéral, sans la rotation interne qui contraint l’épaule.' },
+  'mollets-assis': { alt: 'mollets-debout', why: 'Genou tendu : le gastrocnémien (le gros du mollet) travaille. Assis, il est presque au repos.' },
+  'crunch': { alt: 'crunch-poulie', why: 'La charge se règle : on progresse en kilos, pas en reps à l’infini.' },
+  'leg-extension': { tip: 'Recule le dossier au maximum : le droit fémoral travaille plus étiré.' },
+  squat: { tip: 'Descends profond si ta mobilité le permet : fessiers et adducteurs travaillent davantage.' },
+  'presse-a-cuisses': { tip: 'Descends le plus bas possible sans décoller le bassin : plus d’amplitude, plus de stimulus.' },
+  'mollets-debout': { tip: 'Marque une seconde de pause en bas, talon bien étiré.' },
+};
+
 export function planFromChoice(days, templateIds) {
   const plan = Array(7).fill(null);
   if (!templateIds.length) return plan;

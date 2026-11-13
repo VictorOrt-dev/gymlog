@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { RANGES, exerciseNameError } from '../lib/defaults';
+import { BIOMECH, RANGES, exerciseNameError } from '../lib/defaults';
 import { useStore } from '../lib/store';
 import { Pencil } from './Icons';
 
@@ -8,7 +8,7 @@ import { Pencil } from './Icons';
  * son nom (modifiable : « Développé couché » → « Développé couché prise serrée »), sa fourchette, ta note.
  * L'historique est lié à l'exercice, pas à son nom : renommer ne perd ni courbe ni record.
  */
-export default function ExerciseSettings({ exerciseId }) {
+export default function ExerciseSettings({ exerciseId, onSwap, swapLabel = 'Essayer à la place', exclude = [] }) {
   const { state, renameExercise, setExerciseRange, setNote } = useStore();
   const ex = state.exercises.find((e) => e.id === exerciseId);
   const [name, setName] = useState(ex?.name ?? '');
@@ -16,6 +16,8 @@ export default function ExerciseSettings({ exerciseId }) {
   if (!ex) return null;
   const error = exerciseNameError(state.exercises, exerciseId, name);
   const note = state.notes?.[state.profileId]?.[exerciseId] ?? '';
+  const bio = BIOMECH[exerciseId];
+  const alt = bio?.alt && state.exercises.find((e) => e.id === bio.alt);
 
   return (
     <>
@@ -42,6 +44,21 @@ export default function ExerciseSettings({ exerciseId }) {
       <p className={`mb-4 mt-1.5 px-1 text-[13px] leading-snug ${error ? 'text-pink' : 'text-muted'}`} role={error ? 'alert' : undefined}>
         {error ?? 'Ajoute une variante, une prise, une machine… Ton historique et tes records restent attachés.'}
       </p>
+
+      {/* Biomécanique : une piste, jamais une obligation — le plaisir et la régularité comptent plus que l'exercice parfait */}
+      {(alt || bio?.tip) && (
+        <div className="mb-4 rounded-2xl bg-fill px-3.5 py-3">
+          <p className="text-[13px] font-semibold text-pink">{alt ? 'Variante à essayer' : 'Réglage conseillé'}</p>
+          {alt && <p className="mt-0.5 text-[17px] font-semibold leading-tight">{alt.name}</p>}
+          <p className="mt-1 text-[13px] leading-snug text-muted">{alt ? bio.why : bio.tip}</p>
+          {alt && onSwap && !exclude.includes(alt.id) && (
+            <button type="button" onClick={() => onSwap(alt.id)} className="mt-2.5 h-11 w-full rounded-full bg-card text-[15px] font-semibold text-pink active:opacity-60">
+              {swapLabel}
+            </button>
+          )}
+          {alt && <p className="mt-2 text-[13px] leading-snug text-muted">Tu kiffes le tien ? Garde-le : le meilleur exercice, c’est celui que tu fais avec plaisir et régularité.</p>}
+        </div>
+      )}
 
       <p className="mb-1.5 px-1 text-[13px] font-medium text-muted">Fourchette de reps</p>
       <div className="mb-1 grid grid-cols-6 gap-1" role="radiogroup" aria-label="Fourchette de reps">

@@ -49,12 +49,30 @@ describe('Échauffements', () => {
 
 describe('Double progression par fourchette', () => {
   const opts = { inc: 2.5, range: [8, 12] };
-  it('charge et repart du bas quand toutes les séries touchent le haut', () => {
-    expect(target([S(80, 12, 1), S(80, 12, 2), S(80, 13, 1)], opts)).toMatchObject({ w: 82.5, r: 8 });
+  it('1re série en haut → on charge, reps CALCULÉES à la nouvelle charge (pas de retour au bas)', () => {
+    expect(target([S(80, 12, 1), S(80, 12, 2), S(80, 13, 1)], opts)).toMatchObject({ w: 82.5, r: 10 });
   });
-  it('ajoute une rep tant que toutes les séries ne sont pas en haut', () => {
-    expect(target([S(80, 12, 1), S(80, 11, 0)], opts)).toMatchObject({ w: 80, r: 12 });
+  it('la fatigue des séries suivantes n’empêche plus de charger', () => {
+    expect(target([S(80, 12, 1), S(80, 11, 0), S(80, 10, 0)], opts)).toMatchObject({ w: 82.5, r: 10 });
+  });
+  it('sinon +1 rep sur la 1re série, +2 si elle était nettement trop facile', () => {
     expect(target([S(80, 9, 1)], opts)).toMatchObject({ w: 80, r: 10 });
+    expect(target([S(80, 9, 3)], opts)).toMatchObject({ w: 80, r: 11 });
+  });
+  it('gros saut de charge (haltères) → encore une rep avant de charger, puis on charge quand même', () => {
+    const db = { inc: 2, range: [8, 12] };
+    expect(target([S(8, 12, 1)], db)).toMatchObject({ w: 8, r: 13 });
+    expect(target([S(8, 15, 1)], db)).toMatchObject({ w: 10, r: 5 });
+  });
+  it('mouvement lourd : RIR visé 1–2, pris en compte dans les reps calculées', () => {
+    const t = target([S(100, 8, 2)], { inc: 2.5, range: [5, 8], effort: 'heavy' });
+    expect(t).toMatchObject({ w: 102.5, r: 7 });
+    expect(t.why).toMatch(/1–2 reps en réserve/);
+  });
+  it('repsAt : aller-retour exact avec le 1RM estimé', async () => {
+    const { repsAt } = await import('../src/lib/training');
+    expect(repsAt(S(100, 10, 0), 100)).toBe(10);
+    expect(repsAt(S(100, 8, 2), 100, 2)).toBe(8);
   });
   it('vise le bas de la fourchette si on est en dessous', () => {
     expect(target([S(80, 6, 0)], opts)).toMatchObject({ w: 80, r: 8 });

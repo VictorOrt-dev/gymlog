@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { CUSTOM_GROUP, GROUPS } from '../lib/defaults';
-import { LEVELS, VOLUME_ZONE, calendarGrid, mondayOf, muscleOrder, stallingExercises, strengthLevel, volumeStatus, weekStreak, weeklyVolume } from '../lib/stats';
+import { LEVELS, SESSION_CAP, VOLUME_ZONE, calendarGrid, crowdedSessions, mondayOf, muscleOrder, stallingExercises, strengthLevel, volumeStatus, weekStreak, weeklyVolume } from '../lib/stats';
 import { useStore } from '../lib/store';
 import { ago, fmtW, isStalling, seriesFor } from '../lib/training';
 import { Segmented } from './Charts';
@@ -197,6 +197,7 @@ export default function ProgressTab() {
   const shownWeek = week ?? (thisEmpty ? 'last' : 'this');
   const volume = shownWeek === 'this' ? volThis : volLast;
   const groups = muscleOrder(volume.byGroup);
+  const crowded = useMemo(() => crowdedSessions(mine, byId, shownWeek === 'this' ? thisMonday : thisMonday - 7 * 864e5), [mine, byId, shownWeek, thisMonday]);
   const customUsed = state.exercises.filter((e) => e.group === CUSTOM_GROUP && mine.some((s) => s.items.some((i) => i.exerciseId === e.id)));
 
   const deloadUntil = state.deload?.[pid] ?? 0;
@@ -210,7 +211,7 @@ export default function ProgressTab() {
   };
   const startDeload = () => {
     setDeload(endOfWeek(Date.now() + 6 * 864e5)); // 7 jours, jusqu'à la fin de la semaine où ils tombent
-    notify('Semaine de décharge lancée : objectifs à −10 %, une série de moins');
+    notify('Décharge lancée : moitié des séries, −5 %, loin de l’échec');
   };
 
   return (
@@ -254,8 +255,16 @@ export default function ProgressTab() {
             </div>
             <p className="mt-2 px-4 text-[13px] leading-snug text-muted">
               {week == null && thisEmpty ? 'Rien encore cette semaine : voici la semaine dernière. ' : ''}
-              Repère : 10 à 20 séries par muscle et par semaine (zone grisée) ; ½ série pour les muscles secondaires.
+              Séries dures (jusqu’à 3 reps de l’échec) par muscle et par semaine. Repère : 10 à 20 (zone grisée) ; ½ pour les muscles secondaires et les drop sets.
             </p>
+            {crowded.map((c) => (
+              <p key={`${c.at}-${c.group}`} className="mt-2 rounded-xl bg-fill px-3.5 py-2.5 text-[13px] leading-snug">
+                <span className="font-semibold text-white">
+                  {c.group} : {fmtSets(c.sets)} séries dures en une séance ({c.name}, {new Date(c.at).toLocaleDateString('fr-FR', { weekday: 'long' })}).
+                </span>{' '}
+                <span className="text-muted">Au-delà de ~{SESSION_CAP}, chaque série rapporte de moins en moins : mieux vaut répartir sur 2 séances.</span>
+              </p>
+            ))}
             {volume.unassigned > 0 && (
               <button onClick={() => setAssigning(true)} className="mt-1 flex min-h-11 w-full items-center px-4 text-left text-[13px] text-pink active:opacity-60">
                 {fmtSets(volume.unassigned)} série{volume.unassigned > 1 ? 's' : ''} d’exercices perso sans muscle : attribuer →
@@ -271,7 +280,7 @@ export default function ProgressTab() {
                   {deloadActive ? `Semaine de décharge jusqu’au ${new Date(deloadUntil).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric' })}` : `${stalling.length} exercices stagnent`}
                 </p>
                 <p className="mt-0.5 text-[13px] leading-snug text-muted">
-                  {deloadActive ? 'Objectifs à −10 %, une série de moins. Le corps récupère, la force revient plus haut.' : 'Une semaine allégée (−10 %, une série de moins) relance souvent la progression.'}
+                  {deloadActive ? 'Moitié des séries, charge −5 %, arrête-toi à 3–4 reps de l’échec. On baisse le volume, pas l’intensité : tu récupères sans perdre tes charges.' : 'Une semaine allégée (moitié des séries, charge presque intacte) relance souvent la progression.'}
                 </p>
                 <button
                   onClick={deloadActive ? () => setDeload(null) : startDeload}

@@ -25,6 +25,31 @@ export const VOLUME_ZONE = [10, 20];
  * ½ série sur chaque muscle secondaire (le développé couché travaille aussi triceps et épaules).
  * Les échauffements ne comptent pas ; les drop sets comptent.
  */
+/**
+ * Séries « dures » : celles qui stimulent vraiment (RIR ≤ 3). Une série à 4 reps de l'échec ou plus ne compte pas ;
+ * un drop set compte ½ (c'est un prolongement de la série, pas une série complète) ; l'échauffement ne compte pas.
+ */
+export const hardSets = (sets) => sets.reduce((n, s) => n + (s.wu || (s.rir != null && s.rir > 3) ? 0 : s.t === 'drop' ? 0.5 : 1), 0);
+
+/** Au-delà de ~10 séries dures pour un muscle dans UNE séance, chaque série rapporte de moins en moins. */
+export const SESSION_CAP = 10;
+
+/** Séances de la semaine où un muscle (principal) dépasse le plafond : [{ group, sets, at, name }]. */
+export function crowdedSessions(sessions, exercisesById, weekStart) {
+  const end = addDays(weekStart, 7);
+  const out = [];
+  for (const s of sessions) {
+    if (s.startedAt < weekStart || s.startedAt >= end) continue;
+    const by = {};
+    for (const it of s.items) {
+      const g = exercisesById[it.exerciseId]?.group;
+      if (g && g !== CUSTOM_GROUP) by[g] = (by[g] ?? 0) + hardSets(it.sets);
+    }
+    for (const [group, n] of Object.entries(by)) if (n > SESSION_CAP) out.push({ group, sets: n, at: s.startedAt, name: s.name });
+  }
+  return out;
+}
+
 export function weeklyVolume(sessions, exercisesById, weekStart) {
   const end = addDays(weekStart, 7);
   const out = {};
@@ -32,7 +57,7 @@ export function weeklyVolume(sessions, exercisesById, weekStart) {
   for (const s of sessions) {
     if (s.startedAt < weekStart || s.startedAt >= end) continue;
     for (const it of s.items) {
-      const n = work(it.sets).length;
+      const n = hardSets(it.sets);
       if (!n) continue;
       const ex = exercisesById[it.exerciseId];
       if (!ex || !ex.group || ex.group === CUSTOM_GROUP) {
@@ -100,14 +125,14 @@ export function stallingExercises(sessions, isStallingFor, sinceDays = 21, now =
 
 // ── Progression de la séance en cours ───────────────────────────────────────
 
-/** Séries prévues vs faites : prévu = séries principales de la dernière fois (−1 en décharge), 3 pour un exercice nouveau. */
+/** Séries prévues vs faites : prévu = séries principales de la dernière fois (moitié en décharge), 3 pour un exercice nouveau. */
 export function sessionProgress(items, lastByExercise, deload = false) {
   let planned = 0;
   let done = 0;
   for (const it of items) {
     const d = main(it.sets).length;
     const prev = lastByExercise[it.exerciseId]?.sets.length;
-    const p = prev ? (deload ? Math.max(1, prev - 1) : prev) : 3;
+    const p = prev ? (deload ? Math.ceil(prev / 2) : prev) : 3; // décharge : moitié des séries
     planned += Math.max(p, d);
     done += d;
   }

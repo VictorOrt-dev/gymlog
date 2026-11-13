@@ -274,7 +274,15 @@ export default function SessionLogger({ onExit, onFinished }) {
               {menuDone > 0 && ` · ${menuDone} série${menuDone > 1 ? 's' : ''} faite${menuDone > 1 ? 's' : ''}`}
             </p>
             {/* Réglages de l'exercice : nom, fourchette, note (les mêmes que dans les séances types) */}
-            <ExerciseSettings exerciseId={menuItem.exerciseId} />
+            <ExerciseSettings
+              exerciseId={menuItem.exerciseId}
+              exclude={items.map((it) => it.exerciseId)}
+              swapLabel="Essayer pour cette séance"
+              onSwap={(id) => {
+                replace(menu, id); // séance seulement : la séance type ne change pas
+                setMenu(null);
+              }}
+            />
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => move(menu, -1)}

@@ -111,3 +111,34 @@ describe('Mise à jour v4 → v5 : rien ne se perd', () => {
     expect(res.data.drafts).toEqual(before.drafts);
   });
 });
+
+describe('Effort visé, volume en séries dures, variantes', async () => {
+  const { effortOf, BIOMECH, libraryExercises } = await import('../src/lib/defaults');
+  const { hardSets, crowdedSessions } = await import('../src/lib/stats');
+  it('gros polyarticulaires « lourds », machines et isolation « légers » — même si le repos a été changé', () => {
+    expect(effortOf({ id: 'developpe-couche', rest: 60 })).toBe('heavy');
+    expect(effortOf({ id: 'squat' })).toBe('heavy');
+    expect(effortOf({ id: 'leg-extension', rest: 180 })).toBe('light');
+    expect(effortOf({ id: 'developpe-couche-machine' })).toBe('light');
+    expect(effortOf({ id: 'perso', rest: 150 })).toBe('heavy'); // exercice perso : d'après son repos
+  });
+  it('séries dures : RIR ≤ 3 comptent 1, drop set ½, RIR 4+ et échauffements 0', () => {
+    expect(hardSets([{ w: 80, r: 8, rir: 1 }, { w: 80, r: 8, rir: 3 }, { w: 60, r: 10, rir: 4 }, { w: 40, r: 10, rir: null, wu: true }, { w: 60, r: 8, rir: 0, t: 'drop' }])).toBe(2.5);
+  });
+  it('signale un muscle au-delà de 10 séries dures dans une séance', () => {
+    const byId = { a: { group: 'Pectoraux' }, b: { group: 'Pectoraux' } };
+    const sets = (n) => Array.from({ length: n }, () => ({ w: 50, r: 10, rir: 1 }));
+    const s = [{ name: 'Push', startedAt: 1000, items: [{ exerciseId: 'a', sets: sets(6) }, { exerciseId: 'b', sets: sets(5) }] }, { name: 'Push 2', startedAt: 2000, items: [{ exerciseId: 'a', sets: sets(10) }] }];
+    expect(crowdedSessions(s, byId, 0)).toEqual([{ group: 'Pectoraux', sets: 11, at: 1000, name: 'Push' }]);
+  });
+  it('chaque variante suggérée existe dans la bibliothèque, et diffère de l’exercice', () => {
+    const ids = new Set(libraryExercises().map((e) => e.id));
+    for (const [id, v] of Object.entries(BIOMECH)) {
+      expect(ids.has(id), id).toBe(true);
+      if (v.alt) {
+        expect(ids.has(v.alt), v.alt).toBe(true);
+        expect(v.alt).not.toBe(id);
+      } else expect(v.tip).toBeTruthy();
+    }
+  });
+});

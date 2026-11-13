@@ -31,7 +31,7 @@ Pendant la séance, tout est sur la carte de l'exercice :
 
 **À la fin, un récapitulatif** : durée, séries de travail, records battus, tonnage effectif, et chaque exercice comparé à ta dernière séance du même type. « Partager le récap » en fait une image à envoyer aux potes.
 
-**Onglet Progrès**, en 4 blocs : **Force** (une carte par exercice, puis ton **niveau** Novice → Élite sur squat, développé couché, soulevé de terre et développé militaire : meilleur 1RM estimé ÷ poids de corps, avec la charge à viser pour le palier suivant ; poids de corps et repères hommes/femmes derrière l'avatar, des ordres de grandeur, pas une note) · **Volume** par muscle (½ série pour les muscles secondaires, repère 10–20 ; le lundi, la semaine dernière s'affiche tant que la semaine est vide) · **Régularité** (calendrier des 12 dernières semaines, « 🔥 N semaines » en en-tête, et la **semaine de décharge** proposée quand plusieurs exercices stagnent) · **Dernières séances**. Sans aucune séance, un seul message clair remplace les blocs vides. Dans la vue d'un exercice : **records par reps**.
+**Onglet Progrès**, en 4 blocs : **Force** (une carte par exercice, puis ton **niveau** Novice → Élite sur squat, développé couché, soulevé de terre et développé militaire : meilleur 1RM estimé ÷ poids de corps, avec la charge à viser pour le palier suivant ; poids de corps et repères hommes/femmes derrière l'avatar, des ordres de grandeur, pas une note) · **Volume** par muscle (séries dures uniquement, ½ pour les muscles secondaires et les drop sets, repère 10–20, alerte au-delà de ~10 séries pour un muscle dans une séance ; le lundi, la semaine dernière s'affiche tant que la semaine est vide) · **Régularité** (calendrier des 12 dernières semaines, « 🔥 N semaines » en en-tête, et la **semaine de décharge** proposée quand plusieurs exercices stagnent : moitié des séries, charge presque intacte) · **Dernières séances**. Sans aucune séance, un seul message clair remplace les blocs vides. Dans la vue d'un exercice : **records par reps**.
 
 **Sauvegarde en 1 tap** : le menu « Partager » du téléphone (iCloud Drive, Google Drive, AirDrop…), avec un rappel sur l'accueil quand des séances ne sont pas à l'abri. **Envoyer une séance type à un pote** : un lien, sans serveur ; il l'ajoute en un tap.
 
@@ -126,15 +126,24 @@ Au poids du corps (tractions, dips à vide), on suit les reps.
 
 ## La règle de progression
 
-Elle est dans `src/lib/training.js`, fonction `target()`. Double progression par fourchette (exemple 8–12) :
+Elle est dans `src/lib/training.js`, fonction `target()`. Double progression pilotée par la **1re série** (la seule faite sans fatigue accumulée), exemple 8–12 :
 
-| Dernière fois (séries de travail)       | Objectif du jour                     |
-| --------------------------------------- | ------------------------------------ |
-| Toutes les séries au haut (12)          | + 1 cran de charge, retour à 8 reps  |
-| Pas encore toutes en haut               | même charge, + 1 rep (max 12)        |
-| Sous le bas de la fourchette (< 8)      | même charge, viser 8                 |
+| Dernière fois (1re série)               | Objectif du jour                                                        |
+| --------------------------------------- | ----------------------------------------------------------------------- |
+| En haut de la fourchette (12)           | + 1 cran, reps **calculées** à la nouvelle charge (80 × 12 → 82,5 × 10) |
+| Le cran ferait tomber sous 8 reps       | encore une rep avant de charger (haltères : 8 → 10 kg = +25 %)          |
+| Pas encore en haut                      | même charge, + 1 rep (+2 si elle était nettement trop facile)           |
+| Sous le bas de la fourchette (< 8)      | même charge, viser 8                                                    |
 
-Fourchettes par défaut : 5–8 sur les gros polyarticulaires, 6–10 sur les polyarticulaires, 8–12 en accessoire et en isolation, 12–20 pour les abdos et mollets. Chacune se change dans « ⋯ ».
+**Effort visé** : 1–2 reps en réserve sur les gros polyarticulaires (squat, soulevé de terre, développés, rowings barre : l'échec y coûte cher en fatigue pour le même muscle), 0–1 sur machines et isolation. Il sert aux reps calculées, au pré-remplissage du RIR et pour juger « trop facile ».
+
+**Volume** : seules les séries dures comptent (RIR ≤ 3), un drop set compte ½. Au-delà de ~10 séries dures pour un muscle dans une seule séance, Progrès le signale : mieux vaut répartir.
+
+**Décharge** : moitié des séries, charge −5 %, 3–4 reps de l'échec. On baisse le volume, pas l'intensité.
+
+**Variantes biomécaniques** (réglages d'un exercice) : quand un exercice voisin est mieux placé, surtout pour charger le muscle étiré (extension triceps au-dessus de la tête, leg curl assis, curl incliné, élévations latérales à la poulie, mollets debout…), l'app le suggère avec un bouton pour l'essayer. Jamais imposé : on garde l'exercice qu'on aime.
+
+Fourchettes par défaut : 5–8 sur les gros polyarticulaires, 6–10 sur les polyarticulaires, 8–12 en accessoire et en isolation, 12–20 pour les abdos et les petits muscles. Chacune se change dans « ⋯ ».
 
 **Pendant la séance**, `setTargets()` ajuste l'objectif de chaque série suivante d'après la précédente (échec → même charge, −1 rep ; vraie chute de 3 reps ou plus → −5 % ; trop facile → +1 rep ou +1 cran). Sans imposer la fourchette.
 

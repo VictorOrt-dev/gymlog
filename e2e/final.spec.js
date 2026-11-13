@@ -114,7 +114,7 @@ test.describe('renommer un exercice', () => {
     await page.getByRole('button', { name: 'Démarrer Push' }).click();
     const card = page.locator('main section').first();
     await expect(card).toContainText('Développé couché pause 1 s');
-    await expect(card).toContainText('82,5 kg × 5'); // l'objectif vient toujours de l'historique
+    await expect(card).toContainText('82,5 kg × 6'); // l'objectif vient toujours de l'historique
   });
 
   test('depuis la séance, dans « ⋯ »', async ({ page }) => {
@@ -145,4 +145,36 @@ test('mise à jour de l’app : séance en cours, notes et historique intacts', 
   await expect(card).toContainText('Banc cran 3'); // la note aussi
   const after = await page.evaluate(() => ({ sessions: localStorage.getItem('gymlog:sessions'), v: JSON.parse(localStorage.getItem('gymlog:data')).v, safety: !!localStorage.getItem('gymlog:avant-mise-a-jour') }));
   expect(after).toEqual({ sessions: sessionsBefore, v: 5, safety: true }); // historique octet pour octet, filet de sécurité posé
+});
+
+test.describe('variantes biomécaniques : suggérées, jamais imposées', () => {
+  test.beforeEach(async ({ page }) => seed(page));
+
+  test('dans la séance type : la variante remplace l’exercice si on le choisit', async ({ page }) => {
+    await page.getByRole('button', { name: /^Pull/ }).first().click();
+    await page.getByRole('button', { name: /^Modifier Curl barre/ }).click();
+    const sheet = page.getByRole('dialog').last();
+    await expect(sheet).toContainText('Variante à essayer');
+    await expect(sheet).toContainText('Curl incliné haltères');
+    await expect(sheet).toContainText('Tu kiffes le tien ? Garde-le');
+    await sheet.getByRole('button', { name: 'Remplacer dans la séance type' }).click();
+    await page.getByRole('button', { name: 'Terminé' }).click();
+    const list = page.locator('section').filter({ hasText: 'Mes séances' });
+    await expect(list).toContainText('Curl incliné haltères');
+  });
+
+  test('en séance : « Essayer pour cette séance », la séance type ne change pas', async ({ page }) => {
+    await page.getByRole('button', { name: 'Démarrer Pull' }).click();
+    await page.locator('main section').filter({ hasText: 'Curl barre' }).getByRole('button', { expanded: false }).first().click();
+    await page.getByRole('button', { name: /^Réglages de Curl barre/ }).click();
+    await page.getByRole('button', { name: 'Essayer pour cette séance' }).click();
+    await expect(page.locator('main')).toContainText('Curl incliné haltères');
+    await expect(page.locator('main')).not.toContainText('Curl barre');
+  });
+
+  test('un exercice sans meilleure variante n’affiche rien', async ({ page }) => {
+    await page.getByRole('button', { name: /^Push/ }).first().click();
+    await page.getByRole('button', { name: /^Modifier Développé couché/ }).click();
+    await expect(page.getByText('Variante à essayer')).toHaveCount(0);
+  });
 });

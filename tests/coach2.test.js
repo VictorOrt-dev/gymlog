@@ -12,10 +12,10 @@ describe('Forme du jour et décharge', () => {
   const prev = [S(80, 11, 1), S(80, 11, 1)];
   const opts = { inc: 2.5, range: [8, 12] };
   it('normal : +1 rep', () => expect(target(prev, opts)).toMatchObject({ w: 80, r: 12 }));
-  it('en forme : on charge un cran plus tôt (à 1 rep du haut partout)', () => expect(target(prev, { ...opts, form: 'high' })).toMatchObject({ w: 82.5, r: 8, mode: 'high' }));
+  it('en forme : on charge un cran plus tôt (1re série à 1 rep du haut), reps calculées', () => expect(target(prev, { ...opts, form: 'high' })).toMatchObject({ w: 82.5, r: 9, mode: 'high' }));
   it('en forme mais loin du haut : progression normale', () => expect(target([S(80, 9, 1)], { ...opts, form: 'high' })).toMatchObject({ w: 80, r: 10 }));
   it('jour sans : −5 % arrondi à une charge faisable, reps égales', () => expect(target(prev, { ...opts, form: 'low' })).toMatchObject({ w: 75, r: 11, mode: 'low' }));
-  it('décharge : −10 % arrondi, reps égales', () => expect(target([S(100, 8, 1)], { ...opts, deload: true })).toMatchObject({ w: 90, r: 8, mode: 'deload' }));
+  it('décharge : on baisse le volume, pas l’intensité (−5 %, reps égales)', () => expect(target([S(100, 8, 1)], { ...opts, deload: true })).toMatchObject({ w: 95, r: 8, mode: 'deload' }));
 });
 
 describe('Drop sets et échec', () => {
@@ -49,8 +49,8 @@ describe('Volume hebdomadaire par muscle', () => {
     { profileId: 'p', startedAt: week - 864e5, items: [{ exerciseId: 'curl-barre', sets: [S(30, 10)] }] },
   ];
   const v = weeklyVolume(sessions, ex, week);
-  it('1 série sur le muscle principal, ½ sur chaque secondaire, échauffement exclu, drop inclus', () => {
-    expect(v.byGroup).toEqual({ Pectoraux: 3, Triceps: 1.5, Épaules: 1.5 });
+  it('1 série dure sur le muscle principal, ½ sur chaque secondaire, échauffement exclu, drop set ½', () => {
+    expect(v.byGroup).toEqual({ Pectoraux: 2.5, Triceps: 1.25, Épaules: 1.25 });
   });
   it('ignore les autres semaines et signale les exercices perso sans muscle', () => {
     expect(v.byGroup.Biceps).toBeUndefined();
