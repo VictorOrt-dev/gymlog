@@ -15,5 +15,6 @@ export default defineConfig({
     { name: 'iPhone 13', use: { ...devices['iPhone 13'], browserName: 'chromium' } },
     { name: 'iPhone SE', use: { ...devices['iPhone SE'], browserName: 'chromium' } },
   ],
-  webServer: { command: 'npm run build && npx vite preview --port 4173 --strictPort', url: 'http://localhost:4173', reuseExistingServer: !process.env.CI, timeout: 120_000 },
+  // Toujours l'app fraîchement construite : jamais un serveur oublié qui servirait une vieille version.
+  webServer: { command: 'npm run build && npx vite preview --port 4173 --strictPort', url: 'http://localhost:4173', reuseExistingServer: false, timeout: 120_000 },
 });

@@ -109,6 +109,10 @@ export default function SettingsSheet({ open, onClose }) {
       <p className={`mt-2 px-4 text-[13px] ${stale ? 'text-pink' : 'text-muted'}`}>
         Tes données restent sur ce téléphone. {state.lastExport ? `Dernière sauvegarde : ${ago(state.lastExport)}.` : 'Jamais sauvegardées.'}
       </p>
+      <p className="mt-6 text-center text-[13px] text-muted">
+        Version du {new Date(__BUILD__).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })} à{' '}
+        {new Date(__BUILD__).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+      </p>
     </Sheet>
   );
 }

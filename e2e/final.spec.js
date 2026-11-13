@@ -180,3 +180,22 @@ test.describe('variantes biomécaniques : suggérées, jamais imposées', () => 
     await expect(page.getByText('Variante à essayer')).toHaveCount(0);
   });
 });
+
+test('hors ligne : l’app s’ouvre quand même (cache de secours)', async ({ page, context }) => {
+  await seed(page);
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await page.reload();
+  await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+  await page.waitForTimeout(800); // la version reçue finit d'être rangée
+  await context.setOffline(true);
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Aujourd’hui' }).or(page.locator('h1').first())).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator('section').filter({ hasText: 'Mes séances' })).toContainText('Push');
+  await context.setOffline(false);
+});
+
+test('Réglages affichent la date de la version', async ({ page }) => {
+  await seed(page);
+  await page.getByRole('button', { name: 'Réglages et sauvegarde' }).click();
+  await expect(page.getByText(/^Version du \d+ \S+ à \d{2}:\d{2}$/)).toBeVisible();
+});

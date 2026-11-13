@@ -13,5 +13,15 @@ createRoot(document.getElementById('root')).render(
 navigator.storage?.persist?.().catch(() => {});
 
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
+  // Une nouvelle version prend la main juste après l'ouverture → on recharge une fois pour l'afficher tout de suite.
+  // Jamais en pleine utilisation (au-delà de 10 s) : elle s'affichera simplement à la prochaine ouverture.
+  const hadController = !!navigator.serviceWorker.controller;
+  const openedAt = Date.now();
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloaded || Date.now() - openedAt > 10_000) return;
+    reloaded = true;
+    window.location.reload();
+  });
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }));
 }

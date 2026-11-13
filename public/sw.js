@@ -1,32 +1,42 @@
-// Service worker minimal : l'app s'ouvre instantanément, même au sous-sol sans réseau.
-// Stratégie : on sert le cache tout de suite, on met à jour en arrière-plan, et on purge ce qui est périmé.
+// Service worker : l'app s'ouvre même au sous-sol sans réseau, ET se met à jour dès qu'il y a du réseau.
+// Stratégie (page) : réseau d'abord, avec 3 s de patience ; sinon le cache. Fichiers du build (noms uniques) : cache d'abord.
+// Pourquoi pas « cache d'abord » pour la page : sur iPhone, la mise à jour en arrière-plan est coupée quand on ferme l'app,
+// et la nouvelle version n'arrivait jamais.
 const PREFIX = 'gymlog-';
-const CACHE = `${PREFIX}v2`;
+const CACHE = `${PREFIX}v3`;
+const NETWORK_WAIT = 3000;
 const abs = (path) => new URL(path, self.registration.scope).href;
+// Les fichiers ont des noms uniques par version : on ignore l'en-tête Vary (sinon un fichier bien rangé peut être « introuvable » hors ligne).
+const match = (req) => caches.match(req, { ignoreVary: true });
 
-async function refresh() {
+/** Range une version complète : ses fichiers indispensables d'abord, la page ensuite, puis purge de l'ancienne. */
+async function store(res) {
   const cache = await caches.open(CACHE);
-  const res = await fetch('./', { cache: 'no-cache' });
-  if (!res.ok) return;
   const html = await res.clone().text();
-  const assets = [...html.matchAll(/(?:src|href)="(\.\/[^"]+)"/g)].map((m) => abs(m[1]));
-  await cache.addAll(assets); // d'abord les fichiers du nouveau build…
-  await cache.put('./', res); // …puis seulement le HTML qui les référence
-  // Purge : tout fichier qui n'appartient plus à la version courante est supprimé (pas d'accumulation).
-  const keep = new Set([...assets, abs('./')]);
+  const files = [...new Set([...html.matchAll(/(?:src|href)="(\.\/[^"]+)"/g)].map((m) => abs(m[1])))];
+  const critical = files.filter((f) => /\/assets\//.test(f)); // JS et CSS : sans eux, pas d'app hors ligne
+  const missing = [];
+  for (const f of critical) if (!(await cache.match(f, { ignoreVary: true }))) missing.push(f); // noms uniques par build : déjà là = à jour
+  await cache.addAll(missing);
+  await Promise.allSettled(files.filter((f) => !critical.includes(f)).map(async (f) => (await cache.match(f, { ignoreVary: true })) || cache.add(f))); // icônes, écrans de démarrage : un échec ne bloque rien
+  await cache.put(abs('./'), res);
+  const keep = new Set([...files, abs('./')]);
   for (const req of await cache.keys()) if (!keep.has(req.url)) await cache.delete(req);
 }
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
-  e.waitUntil(refresh().catch(() => {}));
+  e.waitUntil(
+    fetch(abs('./'), { cache: 'no-cache' })
+      .then((r) => r.ok && store(r))
+      .catch(() => {}),
+  );
 });
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     (async () => {
-      // Anciens caches GymLog (versions précédentes du service worker) : supprimés.
-      for (const name of await caches.keys()) if (name.startsWith(PREFIX) && name !== CACHE) await caches.delete(name);
+      for (const name of await caches.keys()) if (name.startsWith(PREFIX) && name !== CACHE) await caches.delete(name); // anciennes versions
       await self.clients.claim();
     })(),
   );
@@ -37,9 +47,21 @@ self.addEventListener('fetch', (e) => {
   if (request.method !== 'GET' || new URL(request.url).origin !== location.origin) return;
 
   if (request.mode === 'navigate') {
-    e.respondWith(caches.match('./').then((hit) => hit || fetch(request)));
-    e.waitUntil(refresh().catch(() => {}));
+    const net = fetch(abs('./'), { cache: 'no-cache' });
+    // La version reçue est rangée pour le hors-ligne, même si elle arrive après les 3 s.
+    e.waitUntil(net.then((r) => r.ok && store(r.clone())).catch(() => {}));
+    e.respondWith(
+      (async () => {
+        try {
+          const res = await Promise.race([net, new Promise((_, no) => setTimeout(() => no(new Error('lent')), NETWORK_WAIT))]);
+          if (res.ok) return res;
+        } catch {
+          /* hors ligne ou réseau trop lent : le cache prend le relais */
+        }
+        return (await match(abs('./'))) || net;
+      })(),
+    );
     return;
   }
-  e.respondWith(caches.match(request).then((hit) => hit || fetch(request)));
+  e.respondWith(match(request).then((hit) => hit || fetch(request)));
 });

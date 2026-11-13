@@ -6,5 +6,6 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineConfig({
   base: './',
   plugins: [react(), tailwindcss()],
+  define: { __BUILD__: JSON.stringify(new Date().toISOString()) }, // date de la version, visible dans Réglages
   test: { include: ['tests/**/*.test.js'] }, // Vitest : tests unitaires ; Playwright : dossier e2e/
 });

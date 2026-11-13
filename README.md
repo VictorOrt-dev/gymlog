@@ -111,6 +111,7 @@ e2e/                         Playwright : parcours réels en format téléphone
 ## Choix assumés
 
 - **Le chrono ne sonne pas écran verrouillé.** Sur iPhone, une app web ne peut pas réveiller le téléphone sans serveur de notifications, ce qui casserait le « 100 % local ». Réponse retenue : l'écran reste allumé pendant la séance, et la fin du repos fait clignoter tout l'écran.
+- **Mises à jour qui arrivent vraiment** : à l'ouverture, l'app demande d'abord la dernière version au réseau (3 s de patience), et ne prend la version en cache qu'hors ligne. Sur iPhone, une mise à jour faite « en arrière-plan » est coupée dès qu'on ferme l'app. La date de la version s'affiche en bas des Réglages.
 - **Mises à jour sans perte** : chaque changement de format passe par une migration testée (historique, notes, séance en cours, séances types, planning restent identiques), et une copie brute des données d'avant est gardée sur le téléphone (`gymlog:avant-mise-a-jour`).
 - **Stockage protégé** : l'app demande au système de ne pas vider ses données quand l'appareil manque de place (`navigator.storage.persist()`), en plus du rappel de sauvegarde.
 - **Écran de démarrage noir** (`scripts/splash.mjs` génère les images iOS) : pas de flash blanc à l'ouverture.
