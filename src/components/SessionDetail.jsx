@@ -2,16 +2,16 @@ import { useEffect, useState } from 'react';
 import { editSessionSet, moveSessionToDay } from '../lib/session';
 import { sessionKcal } from '../lib/stats';
 import { useStore } from '../lib/store';
-import { fmtInt, fmtSet, rirText, tonnage, work } from '../lib/training';
+import { fmtInt, fmtSet, loadFactor, rirText, tonnage, work } from '../lib/training';
 import DayPicker from './DayPicker';
 import Sheet from './Sheet';
 import Stepper from './Stepper';
 import { useToast } from './Toast';
 import { Stat } from './ui';
 
-export const sessionStats = (s) => {
+export const sessionStats = (s, factorOf = () => 1) => {
   const sets = s.items.reduce((n, it) => n + work(it.sets).length, 0); // échauffements exclus
-  const volume = s.items.reduce((v, it) => v + tonnage(work(it.sets)), 0);
+  const volume = s.items.reduce((v, it) => v + tonnage(work(it.sets), factorOf(it.exerciseId)), 0); // « 2 haltères » compté × 2
   const minutes = Math.max(1, Math.round(((s.endedAt ?? s.startedAt) - s.startedAt) / 60e3));
   return { sets, volume, minutes };
 };
@@ -101,7 +101,7 @@ export default function SessionDetail({ session, onClose, onDelete }) {
   if (!session) return null;
 
   const byId = Object.fromEntries(state.exercises.map((e) => [e.id, e]));
-  const { sets, volume, minutes } = sessionStats(session);
+  const { sets, volume, minutes } = sessionStats(session, (id) => loadFactor(byId[id]));
   const energy = sessionKcal(session, state.profiles.find((p) => p.id === state.profileId)?.bw);
   const when = new Date(session.startedAt);
 

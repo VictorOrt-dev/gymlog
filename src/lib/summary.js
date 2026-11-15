@@ -5,7 +5,7 @@ import { bestOf, e1rm, historySets, liveRecords, main, pctChange, tonnage, work,
  * Compare chaque exercice à la dernière séance DU MÊME TYPE (même séance type, sinon même nom) ;
  * à défaut, à la dernière fois où l'exercice a été fait.
  */
-export function buildSummary(draft, sessions, endedAt = Date.now()) {
+export function buildSummary(draft, sessions, endedAt = Date.now(), factorOf = () => 1) {
   const mine = sessions.filter((s) => s.profileId === draft.profileId && s.startedAt < draft.startedAt);
   const sameType = mine.filter((s) => (draft.templateId ? s.templateId === draft.templateId : s.name === draft.name)).at(-1) ?? null;
 
@@ -30,8 +30,8 @@ export function buildSummary(draft, sessions, endedAt = Date.now()) {
       };
     });
 
-  const kg = draft.items.reduce((a, it) => a + tonnage(workSets(it.sets)), 0);
-  const prevKg = sameType ? sameType.items.reduce((a, it) => a + tonnage(workSets(it.sets)), 0) : 0;
+  const kg = draft.items.reduce((a, it) => a + tonnage(workSets(it.sets), factorOf(it.exerciseId)), 0);
+  const prevKg = sameType ? sameType.items.reduce((a, it) => a + tonnage(workSets(it.sets), factorOf(it.exerciseId)), 0) : 0;
   return {
     name: draft.name,
     minutes: Math.max(1, Math.round((endedAt - draft.startedAt) / 60e3)),

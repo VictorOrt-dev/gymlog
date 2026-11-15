@@ -113,7 +113,9 @@ export const fmtInt = (n) => Math.round(n).toLocaleString('fr-FR');
 
 /** Tonnage = Σ poids × reps sur toutes les séries. Au poids du corps (0 kg), on compte les reps. */
 export const isBodyweight = (sets) => sets.length > 0 && sets.every((s) => s.w === 0);
-export const tonnage = (sets) => sets.reduce((a, s) => a + s.w * s.r, 0);
+export const tonnage = (sets, factor = 1) => sets.reduce((a, s) => a + s.w * s.r * factor, 0);
+/** « 2 haltères » : on note le poids d'UNE haltère, le tonnage compte les deux mains. Le 1RM estimé, lui, reste par haltère. */
+export const loadFactor = (ex) => (ex?.pair ? 2 : 1);
 export const totalReps = (sets) => sets.reduce((a, s) => a + s.r, 0);
 
 export const fmtW = (w) => (w > 0 ? String(round(w)).replace('.', ',') : 'PDC');
@@ -162,7 +164,7 @@ export const METRICS = {
  * best      → 1RM estimé de la meilleure série (reps max au poids du corps)
  * effective → tonnage des séries RIR ≤ 3 (reps des séries de travail au poids du corps)
  */
-export function seriesFor(sessions, exerciseId, metric = 'best') {
+export function seriesFor(sessions, exerciseId, metric = 'best', factor = 1) {
   const pts = [];
   for (const s of sessions) {
     const it = s.items.find((i) => i.exerciseId === exerciseId);
@@ -171,7 +173,7 @@ export function seriesFor(sessions, exerciseId, metric = 'best') {
   }
   const bw = isBodyweight(pts.flatMap((p) => p.sets));
   const value = (sets) => {
-    if (metric === 'effective') return bw ? totalReps(workSets(sets)) : Math.round(tonnage(workSets(sets)));
+    if (metric === 'effective') return bw ? totalReps(workSets(sets)) : Math.round(tonnage(workSets(sets), factor));
     return bw ? Math.max(...sets.map((x) => x.r)) : Math.round(e1rm(bestOf(sets)) * 2) / 2;
   };
   return {

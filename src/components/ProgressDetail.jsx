@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { repRecords } from '../lib/stats';
 import { useStore } from '../lib/store';
-import { METRICS, bestOf, e1rm, fmtSet, pctChange, previousOf, seriesFor } from '../lib/training';
+import { METRICS, bestOf, e1rm, fmtSet, loadFactor, pctChange, previousOf, seriesFor } from '../lib/training';
 import { LineChart, Segmented } from './Charts';
 import SessionDetail from './SessionDetail';
 import { useToast } from './Toast';
@@ -55,7 +55,7 @@ export default function ProgressDetail({ exerciseId, onClose, backLabel = 'Accue
   }, [exerciseId]);
 
   const mine = useMemo(() => state.sessions.filter((s) => s.profileId === state.profileId), [state.sessions, state.profileId]);
-  const series = useMemo(() => (open ? seriesFor(mine, exerciseId, metric) : null), [mine, exerciseId, metric, open]);
+  const series = useMemo(() => (open ? seriesFor(mine, exerciseId, metric, loadFactor(state.exercises.find((e) => e.id === exerciseId))) : null), [mine, exerciseId, metric, open, state.exercises]);
   const empty = open && series && !series.points.length;
 
   useEffect(() => {

@@ -3,7 +3,7 @@ export const uid = () => Date.now().toString(36) + Math.random().toString(36).sl
 export const slug = (s) =>
   s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
-export const VERSION = 5;
+export const VERSION = 6;
 export const DEFAULT_REST = 120;
 export const CUSTOM_GROUP = 'Mes exercices';
 
@@ -157,7 +157,9 @@ export const defaultRange = (rest) => (rest >= 180 ? [5, 8] : rest >= 150 ? [6, 
 export const RANGES = [[3, 5], [5, 8], [6, 10], [8, 12], [10, 15], [12, 20]];
 
 export const libraryExercises = () =>
-  Object.entries(LIBRARY).flatMap(([group, list]) => list.map(([name, inc, rest]) => ({ id: slug(name), name, group, sec: SECONDARY[name] ?? [], inc, rest, range: defaultRange(rest) })));
+  Object.entries(LIBRARY).flatMap(([group, list]) =>
+    list.map(([name, inc, rest]) => ({ id: slug(name), name, group, sec: SECONDARY[name] ?? [], inc, rest, range: defaultRange(rest), ...(PAIR_DEFAULT.has(slug(name)) ? { pair: true } : {}) })),
+  );
 
 /** Modèles prêts à l'emploi : on les ajoute à ses séances, puis on les modifie comme on veut. */
 export const MODELS = [
@@ -200,6 +202,15 @@ export function exerciseNameError(exercises, id, rawName) {
 }
 
 // ── Effort visé et variantes biomécaniques ───────────────────────────────────
+
+/** Exercices de la bibliothèque faits avec DEUX haltères à la fois (une dans chaque main) : tonnage × 2. */
+export const PAIR_DEFAULT = new Set(
+  [
+    'Développé couché haltères', 'Développé incliné haltères', 'Écarté haltères', 'Développé haltères assis', 'Arnold press',
+    'Élévations latérales', 'Élévations frontales', 'Oiseau haltères', 'Shrug haltères', 'Curl haltères', 'Curl marteau',
+    'Curl incliné haltères', 'Fentes haltères', 'Fentes marchées', 'Fentes bulgares', 'Step-up',
+  ].map(slug),
+);
 
 const LIB_REST = new Map(Object.values(LIBRARY).flat().map(([name, , rest]) => [slug(name), rest]));
 /** « Lourd » (gros polyarticulaire, repos long dans la bibliothèque) ou « léger » (machine, poulie, isolation). */
@@ -296,6 +307,11 @@ export function migrate(input) {
       v: 5,
       exercises: s.exercises.map((e) => (isolation.has(e.id) && e.range?.[0] === 10 && e.range?.[1] === 15 ? { ...e, range: [8, 12] } : e)),
     };
+  }
+  if (s.v < 6) {
+    // v5 → v6 : option « 2 haltères » (tonnage × 2), cochée sur les exercices de la bibliothèque faits avec deux haltères.
+    // Rien d'autre ne change ; les exercices perso restent tels quels (à cocher soi-même).
+    s = { ...s, v: 6, exercises: s.exercises.map((e) => (e.pair == null && PAIR_DEFAULT.has(e.id) ? { ...e, pair: true } : e)) };
   }
   // Données existantes sans le drapeau : l'app était déjà utilisée, pas d'écran de bienvenue.
   if (s.onboarded == null) s = { ...s, onboarded: true };

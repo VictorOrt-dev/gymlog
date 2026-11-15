@@ -9,7 +9,7 @@ import { Pencil } from './Icons';
  * L'historique est lié à l'exercice, pas à son nom : renommer ne perd ni courbe ni record.
  */
 export default function ExerciseSettings({ exerciseId, onSwap, swapLabel = 'Essayer à la place', exclude = [] }) {
-  const { state, renameExercise, setExerciseRange, setNote } = useStore();
+  const { state, renameExercise, setExerciseRange, setExercisePair, setNote } = useStore();
   const ex = state.exercises.find((e) => e.id === exerciseId);
   const [name, setName] = useState(ex?.name ?? '');
   useEffect(() => setName(ex?.name ?? ''), [exerciseId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -43,6 +43,26 @@ export default function ExerciseSettings({ exerciseId, onSwap, swapLabel = 'Essa
       </label>
       <p className={`mb-4 mt-1.5 px-1 text-[13px] leading-snug ${error ? 'text-pink' : 'text-muted'}`} role={error ? 'alert' : undefined}>
         {error ?? 'Ajoute une variante, une prise, une machine… Ton historique et tes records restent attachés.'}
+      </p>
+
+      {/* 2 haltères : on note le poids d'une haltère, le tonnage compte les deux mains */}
+      <button
+        type="button"
+        role="switch"
+        aria-checked={!!ex.pair}
+        onClick={() => setExercisePair(exerciseId, !ex.pair)}
+        className="mb-1 flex min-h-14 w-full items-center gap-3 rounded-xl bg-fill py-2 pl-3.5 pr-3 text-left active:bg-fill-hi"
+      >
+        <span className="min-w-0 flex-1">
+          <span className="block text-[17px] font-semibold">2 haltères</span>
+          <span className="block text-[13px] leading-snug text-muted">Une dans chaque main, en même temps</span>
+        </span>
+        <span className={`relative h-[31px] w-[51px] shrink-0 rounded-full transition-colors ${ex.pair ? 'bg-pink' : 'bg-fill-hi'}`} aria-hidden="true">
+          <span className={`absolute top-[2px] h-[27px] w-[27px] rounded-full bg-white shadow transition-transform ${ex.pair ? 'translate-x-[22px]' : 'translate-x-[2px]'}`} />
+        </span>
+      </button>
+      <p className="mb-4 px-1 text-[13px] leading-snug text-muted">
+        {ex.pair ? 'Note le poids d’une haltère (28 kg) : le tonnage compte les deux (56 kg par rep).' : 'Barre, machine ou une seule haltère : le poids noté est le poids soulevé.'}
       </p>
 
       {/* Biomécanique : une piste, jamais une obligation — le plaisir et la régularité comptent plus que l'exercice parfait */}

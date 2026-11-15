@@ -62,6 +62,7 @@ export function validate(data) {
   data.exercises.forEach((e, i) => {
     check(isObj(e) && isStr(e.id) && isStr(e.name), `Exercice n° ${i + 1} invalide`);
     check(e.inc == null || isNum(e.inc, 0.25, 50), `Exercice « ${e.name} » : pas de charge invalide`);
+    check(e.pair == null || typeof e.pair === 'boolean', `Exercice « ${e.name} » : option « 2 haltères » invalide`);
     check(e.range == null || (Array.isArray(e.range) && e.range.length === 2 && e.range.every((x) => Number.isInteger(x) && x > 0) && e.range[0] < e.range[1]), `Exercice « ${e.name} » : fourchette invalide`);
   });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { libraryExercises, migrate, initialState } from '../src/lib/defaults';
+import { libraryExercises, migrate, initialState, VERSION } from '../src/lib/defaults';
 import { applySupersets, editSessionSet, linkSuperset, moveItem, removeItem, replaceItem, supersetOf, supersetPairs, unlinkSuperset } from '../src/lib/session';
 import { decodeTemplate, encodeTemplate, readSharedCode, templateLink } from '../src/lib/share';
 import { mondayOf, repRecords, volumeStatus, weekStreak, weeklyVolume } from '../src/lib/stats';
@@ -144,7 +144,7 @@ describe('Migration v4', () => {
     const s = initialState();
     const v3 = { ...s, v: 3, deload: undefined, exercises: s.exercises.map(({ sec, ...e }) => e), templates: s.templates.map(({ supersets, ...t }) => t) }; // eslint-disable-line no-unused-vars
     const m = migrate(v3);
-    expect(m.v).toBe(5); // jusqu'à la version courante
+    expect(m.v).toBe(VERSION); // jusqu'à la version courante
     expect(m.exercises.find((e) => e.id === 'squat').sec).toEqual(['Ischios & fessiers']);
     expect(m.templates.every((t) => Array.isArray(t.supersets))).toBe(true);
     expect(m.deload).toEqual({});

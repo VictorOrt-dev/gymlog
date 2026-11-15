@@ -5,7 +5,7 @@ import { linkSuperset, moveItem, removeItem, replaceItem, supersetOf, supersetPa
 import { useStore } from '../lib/store';
 import { sessionProgress } from '../lib/stats';
 import { buildSummary } from '../lib/summary';
-import { historySets, isStalling, lastPerformances, mmss, seriesFor, work } from '../lib/training';
+import { historySets, isStalling, lastPerformances, loadFactor, mmss, seriesFor, work } from '../lib/training';
 import ExerciseCard from './ExerciseCard';
 import ExerciseSettings from './ExerciseSettings';
 import ExercisePicker from './ExercisePicker';
@@ -143,7 +143,7 @@ export default function SessionLogger({ onExit, onFinished }) {
 
   const finish = () => {
     if (!confirming) return setConfirming(true);
-    const summary = any ? buildSummary(draft, state.sessions) : null; // avant d'archiver : comparaison avec l'historique d'avant
+    const summary = any ? buildSummary(draft, state.sessions, Date.now(), (id) => loadFactor(byId[id])) : null; // avant d'archiver : comparaison avec l'historique d'avant
     timer.stop();
     finishSession();
     onFinished({ summary, sessionId: draft.id });

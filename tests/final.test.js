@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { initialState, migrate, planFromChoice } from '../src/lib/defaults';
+import { initialState, migrate, planFromChoice, VERSION } from '../src/lib/defaults';
 import { moveSessionToDay } from '../src/lib/session';
 
 describe('Planning du premier lancement', () => {
@@ -99,7 +99,7 @@ describe('Mise à jour v4 → v5 : rien ne se perd', () => {
     const once = migrate(v4());
     once.exercises = once.exercises.map((e) => (e.id === 'leg-extension' ? { ...e, range: [10, 15] } : e));
     expect(migrate(once).exercises.find((e) => e.id === 'leg-extension').range).toEqual([10, 15]);
-    expect(migrate(once).v).toBe(5);
+    expect(migrate(once).v).toBe(VERSION);
   });
   it('une sauvegarde v4 se restaure dans la nouvelle version', async () => {
     const { parseBackup } = await import('../src/lib/backup');
@@ -163,4 +163,53 @@ describe('Calories estimées', async () => {
     expect(activeMinutes(mk(2, 60, { at: false, endedAfter: 400 }))).toBe(180);
   });
   it('sans poids de corps : calcul sur 75 kg, signalé', () => expect(sessionKcal(mk(2, 60))).toMatchObject({ kcal: 300, assumedBw: true }));
+});
+
+describe('Option « 2 haltères »', async () => {
+  const { tonnage, loadFactor } = await import('../src/lib/training');
+  const { buildSummary } = await import('../src/lib/summary');
+  const { parseBackup, serializeBackup } = await import('../src/lib/backup');
+
+  it('le tonnage compte les deux mains, le poids noté reste celui d’une haltère', () => {
+    const sets = [{ w: 28, r: 8, rir: 1 }, { w: 28, r: 7, rir: 0 }];
+    expect(tonnage(sets)).toBe(420);
+    expect(tonnage(sets, loadFactor({ pair: true }))).toBe(840);
+    expect(loadFactor({})).toBe(1);
+  });
+
+  it('le récapitulatif additionne en tenant compte de l’option', () => {
+    const draft = { profileId: 'p', templateId: null, name: 'Pec', startedAt: 10, items: [{ exerciseId: 'dd', sets: [{ w: 28, r: 8, rir: 1 }] }, { exerciseId: 'dc', sets: [{ w: 80, r: 8, rir: 1 }] }] };
+    expect(buildSummary(draft, [], 20, (id) => (id === 'dd' ? 2 : 1)).kg).toBe(28 * 8 * 2 + 640);
+  });
+
+  it('mise à jour v5 → v6 : cochée sur les exercices à deux haltères de la bibliothèque, rien d’autre ne bouge', () => {
+    const v5 = initialState();
+    v5.v = 5;
+    v5.exercises = v5.exercises.map(({ pair, ...e }) => e); // eslint-disable-line no-unused-vars
+    v5.exercises.push({ id: 'perso', name: 'Développé décliné haltère', group: 'Perso', inc: 2.5, rest: 120, range: [8, 12], sec: [] });
+    v5.sessions = [{ id: 's', profileId: v5.profileId, startedAt: 1, endedAt: 2, items: [{ exerciseId: 'curl-halteres', sets: [{ w: 14, r: 10, rir: 1 }] }] }];
+    v5.notes = { [v5.profileId]: { 'curl-halteres': 'Prise neutre' } };
+    const after = migrate(structuredClone(v5));
+    const byId = Object.fromEntries(after.exercises.map((e) => [e.id, e]));
+    expect(byId['curl-halteres'].pair).toBe(true);
+    expect(byId['developpe-couche-halteres'].pair).toBe(true);
+    expect(byId['rowing-haltere'].pair).toBeUndefined(); // un bras
+    expect(byId['developpe-couche'].pair).toBeUndefined(); // barre
+    expect(byId.perso.pair).toBeUndefined(); // exercice perso : à cocher soi-même
+    for (const key of ['sessions', 'notes', 'templates', 'plans', 'profiles', 'drafts']) expect(after[key]).toEqual(v5[key]);
+    expect(after.exercises.map(({ pair, ...e }) => e)).toEqual(v5.exercises); // eslint-disable-line no-unused-vars
+  });
+
+  it('un « non » choisi après la mise à jour reste', () => {
+    const s = migrate(initialState());
+    s.exercises = s.exercises.map((e) => (e.id === 'curl-halteres' ? { ...e, pair: false } : e));
+    expect(migrate(s).exercises.find((e) => e.id === 'curl-halteres').pair).toBe(false);
+  });
+
+  it('sauvegarde : l’option est gardée, une valeur absurde refusée', () => {
+    const s = initialState();
+    expect(parseBackup(serializeBackup(s)).data.exercises.find((e) => e.id === 'curl-halteres').pair).toBe(true);
+    s.exercises[0] = { ...s.exercises[0], pair: 'oui' };
+    expect(parseBackup(serializeBackup(s)).error).toMatch(/2 haltères/);
+  });
 });

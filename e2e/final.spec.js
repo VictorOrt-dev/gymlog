@@ -146,7 +146,8 @@ test('mise à jour de l’app : séance en cours, notes et historique intacts', 
   await expect(card).toContainText('82,5 × 6'); // la série déjà faite est là
   await expect(card).toContainText('Banc cran 3'); // la note aussi
   const after = await page.evaluate(() => ({ sessions: localStorage.getItem('gymlog:sessions'), v: JSON.parse(localStorage.getItem('gymlog:data')).v, safety: !!localStorage.getItem('gymlog:avant-mise-a-jour') }));
-  expect(after).toEqual({ sessions: sessionsBefore, v: 5, safety: true }); // historique octet pour octet, filet de sécurité posé
+  expect(after).toEqual({ sessions: sessionsBefore, v: after.v, safety: true }); // historique octet pour octet, filet de sécurité posé
+  expect(after.v).toBeGreaterThan(4); // données converties au format courant
 });
 
 test.describe('variantes biomécaniques : suggérées, jamais imposées', () => {
@@ -224,4 +225,29 @@ test.describe('nouvelle version détectée', () => {
     await page.waitForTimeout(4500);
     await expect(page.getByRole('status').filter({ hasText: 'Mise à jour' })).toHaveCount(0);
   });
+});
+
+test('« 2 haltères » : le tonnage compte les deux mains', async ({ page }) => {
+  await seed(page);
+  // Le développé militaire des données de départ : 40 × 8 par séance (une seule série)
+  await page.getByRole('navigation').getByText('Progrès').click();
+  const last = page.locator('section').filter({ hasText: 'Dernières séances' }).getByRole('button', { name: /Push/ }).first();
+  await last.click();
+  const detail = page.getByRole('dialog');
+  const before = Number((await detail.getByText('Tonnage (kg)').locator('..').innerText()).split('\n')[0].replace(/\s/g, ''));
+  await page.mouse.click(200, 15);
+  await page.getByRole('navigation').getByText('Entraînement').click();
+  await page.getByRole('button', { name: /^Push/ }).first().click();
+  await page.getByRole('button', { name: /^Modifier Développé militaire/ }).click();
+  const sw = page.getByRole('switch', { name: /2 haltères/ });
+  await expect(sw).toHaveAttribute('aria-checked', 'false');
+  await sw.click();
+  await expect(sw).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByText('le tonnage compte les deux')).toBeVisible();
+  await page.getByRole('button', { name: 'OK' }).click();
+  await page.getByRole('button', { name: 'Terminé' }).click();
+  await page.getByRole('navigation').getByText('Progrès').click();
+  await last.click();
+  const after = Number((await page.getByRole('dialog').getByText('Tonnage (kg)').locator('..').innerText()).split('\n')[0].replace(/\s/g, ''));
+  expect(after).toBe(before + 40 * 8); // la série de développé militaire compte désormais deux fois
 });

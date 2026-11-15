@@ -37,7 +37,7 @@ Pendant la séance, tout est sur la carte de l'exercice :
 
 **Une erreur de saisie ?** Dans le détail d'une séance passée, touche une série pour corriger sa charge, ses reps ou son RIR, la supprimer ou la passer en échauffement (avec « Annuler »). Objectifs, records et courbes se recalculent aussitôt.
 
-**Le bouton « ⋯ » d'un exercice** regroupe ce qu'on règle rarement : son **nom** (ajoute une variante, une prise, une machine : l'historique et les records restent attachés ; deux exercices ne peuvent pas porter le même nom), sa **fourchette de reps**, sa **note** (réglage machine, prise), l'ordre (**monter / descendre**), **remplacer** si la machine est prise (les séries déjà faites restent sur l'original), **superset** avec l'exercice suivant, ou retirer.
+**Le bouton « ⋯ » d'un exercice** regroupe ce qu'on règle rarement : son **nom** (ajoute une variante, une prise, une machine : l'historique et les records restent attachés ; deux exercices ne peuvent pas porter le même nom), l'option **2 haltères** (on note le poids d'une haltère, le tonnage compte les deux mains ; cochée d'office sur les exercices de la bibliothèque faits avec deux haltères), sa **fourchette de reps**, sa **note** (réglage machine, prise), l'ordre (**monter / descendre**), **remplacer** si la machine est prise (les séries déjà faites restent sur l'original), **superset** avec l'exercice suivant, ou retirer.
 
 **Premier lancement** : un seul écran de 20 secondes — ton prénom, tes jours d'entraînement, les séances que tu gardes (les autres disparaissent). Le planning se remplit tout seul (« Lun Push · Mer Pull · Ven Legs »). « J'ai déjà une sauvegarde » restaure un ancien téléphone.
 
