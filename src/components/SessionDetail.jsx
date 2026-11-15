@@ -4,6 +4,8 @@ import { sessionKcal } from '../lib/stats';
 import { useStore } from '../lib/store';
 import { fmtInt, fmtSet, loadFactor, rirText, tonnage, work } from '../lib/training';
 import DayPicker from './DayPicker';
+import ExerciseSettings from './ExerciseSettings';
+import { ChevronRight } from './Icons';
 import Sheet from './Sheet';
 import Stepper from './Stepper';
 import { useToast } from './Toast';
@@ -89,6 +91,7 @@ export default function SessionDetail({ session, onClose, onDelete }) {
   const notify = useToast();
   const [confirming, setConfirming] = useState(false);
   const [editing, setEditing] = useState(null); // [indexExercice, indexSérie]
+  const [settingsOf, setSettingsOf] = useState(null); // exercice dont on ouvre les réglages (2 haltères, nom…)
 
   useEffect(() => {
     if (!confirming) return;
@@ -121,6 +124,7 @@ export default function SessionDetail({ session, onClose, onDelete }) {
   };
 
   return (
+    <>
     <Sheet open onClose={onClose}>
       <p className="text-[15px] font-medium text-muted first-letter:uppercase">
         {when.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })} ·{' '}
@@ -147,14 +151,27 @@ export default function SessionDetail({ session, onClose, onDelete }) {
       </div>
       {energy.assumedBw && <p className="mt-2 px-1 text-[13px] text-muted">Calories estimées sur 75 kg : indique ton poids dans Réglages pour les affiner.</p>}
 
-      <p className="mt-4 px-1 text-[13px] text-muted">Une erreur de saisie ? Touche la série pour la corriger : objectifs, records et courbes suivent.</p>
+      <p className="mt-4 px-1 text-[13px] text-muted">Une erreur de saisie ? Touche la série pour la corriger. Touche le nom d’un exercice pour ses réglages (2 haltères, nom, note). Objectifs, records et courbes suivent.</p>
 
       <div className="mt-2 space-y-3">
         {session.items.map((it, i) => {
           let n = 0;
           return (
             <div key={it.exerciseId} className="overflow-hidden rounded-2xl bg-fill">
-              <div className="px-4 pb-1.5 pt-3 text-[17px] font-semibold">{byId[it.exerciseId]?.name ?? 'Exercice supprimé'}</div>
+              {byId[it.exerciseId] ? (
+                <button
+                  type="button"
+                  onClick={() => setSettingsOf(it.exerciseId)}
+                  aria-label={`Réglages de ${byId[it.exerciseId].name} : 2 haltères, nom, fourchette, note`}
+                  className="flex min-h-12 w-full items-center gap-2 px-4 pb-1.5 pt-3 text-left active:opacity-60"
+                >
+                  <span className="min-w-0 flex-1 text-[17px] font-semibold">{byId[it.exerciseId].name}</span>
+                  {byId[it.exerciseId].pair && <span className="shrink-0 rounded-full bg-card px-2 py-0.5 text-[13px] font-semibold text-muted">2 haltères</span>}
+                  <ChevronRight className="h-4 w-4 shrink-0 text-faint" />
+                </button>
+              ) : (
+                <div className="px-4 pb-1.5 pt-3 text-[17px] font-semibold">Exercice supprimé</div>
+              )}
               {it.sets.map((x, j) => {
                 const open = editing?.[0] === i && editing?.[1] === j;
                 return (
@@ -196,5 +213,14 @@ export default function SessionDetail({ session, onClose, onDelete }) {
         </button>
       )}
     </Sheet>
+
+    {/* Réglages d'un exercice depuis une séance passée : ils valent pour toutes les séances (le tonnage se recalcule) */}
+    <Sheet open={settingsOf != null} onClose={() => setSettingsOf(null)} title={byId[settingsOf]?.name ?? ''}>
+      {settingsOf != null && <ExerciseSettings exerciseId={settingsOf} />}
+      <button onClick={() => setSettingsOf(null)} className="h-[52px] w-full rounded-full bg-pink text-[17px] font-semibold text-white active:opacity-80">
+        OK
+      </button>
+    </Sheet>
+    </>
   );
 }

@@ -251,3 +251,17 @@ test('« 2 haltères » : le tonnage compte les deux mains', async ({ page }) =>
   const after = Number((await page.getByRole('dialog').getByText('Tonnage (kg)').locator('..').innerText()).split('\n')[0].replace(/\s/g, ''));
   expect(after).toBe(before + 40 * 8); // la série de développé militaire compte désormais deux fois
 });
+
+test('depuis une séance terminée : toucher le nom d’un exercice ouvre ses réglages (2 haltères)', async ({ page }) => {
+  await seed(page);
+  await page.getByRole('navigation').getByText('Progrès').click();
+  await page.locator('section').filter({ hasText: 'Dernières séances' }).getByRole('button', { name: /Push/ }).first().click();
+  const detail = page.getByRole('dialog').first();
+  const tonnage = async () => Number((await detail.getByText('Tonnage (kg)').locator('..').innerText()).split('\n')[0].replace(/\s/g, ''));
+  const before = await tonnage();
+  await page.getByRole('button', { name: /^Réglages de Développé militaire/ }).click();
+  await page.getByRole('switch', { name: /2 haltères/ }).click();
+  await page.getByRole('button', { name: 'OK' }).click();
+  await expect.poll(tonnage).toBe(before + 40 * 8); // recalculé aussitôt, séance passée comprise
+  await expect(page.getByRole('button', { name: /^Réglages de Développé militaire/ })).toContainText('2 haltères');
+});
