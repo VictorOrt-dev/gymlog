@@ -213,3 +213,34 @@ describe('Option « 2 haltères »', async () => {
     expect(parseBackup(serializeBackup(s)).error).toMatch(/2 haltères/);
   });
 });
+
+describe('Séance ouverte un jour, faite plus tard', async () => {
+  const { startFromSets } = await import('../src/lib/session');
+  const monday18 = new Date(2026, 10, 16, 18, 0).getTime();
+  const tue1630 = new Date(2026, 10, 17, 16, 30).getTime();
+  const late = { id: 'x', startedAt: monday18, endedAt: tue1630 + 70 * 60e3, items: [{ exerciseId: 'a', sets: [{ w: 50, r: 10, rir: 1, at: tue1630 }, { w: 50, r: 9, rir: 0, at: tue1630 + 60 * 60e3 }] }] };
+  it('le début est recalé 5 min avant la 1re série : bon jour, vraie durée', () => {
+    const s = startFromSets(late);
+    expect(new Date(s.startedAt)).toEqual(new Date(2026, 10, 17, 16, 25));
+    expect((s.endedAt - s.startedAt) / 60e3).toBe(75);
+    expect(s.items).toBe(late.items);
+  });
+  it('une séance normale ne bouge pas (même objet)', () => {
+    const ok = { ...late, startedAt: tue1630 - 10 * 60e3 };
+    expect(startFromSets(ok)).toBe(ok);
+    const noAt = { ...late, items: [{ exerciseId: 'a', sets: [{ w: 50, r: 10, rir: 1 }] }] };
+    expect(startFromSets(noAt)).toBe(noAt);
+  });
+  it('mise à jour v6 → v7 : seule la séance mal datée est réparée, et l’historique reste trié', () => {
+    const s = initialState();
+    s.v = 6;
+    const normal = { id: 'n', profileId: s.profileId, startedAt: monday18 - 864e5, endedAt: monday18 - 864e5 + 3600e3, items: [{ exerciseId: 'a', sets: [{ w: 1, r: 1, rir: 1, at: monday18 - 864e5 + 60e3 }] }] };
+    s.sessions = [normal, { ...late, profileId: s.profileId }];
+    s.notes = { [s.profileId]: { a: 'note' } };
+    const after = migrate(structuredClone(s));
+    expect(after.sessions[0]).toEqual(normal);
+    expect(new Date(after.sessions[1].startedAt).getDate()).toBe(17);
+    expect(after.notes).toEqual(s.notes);
+    expect(after.templates).toEqual(s.templates);
+  });
+});

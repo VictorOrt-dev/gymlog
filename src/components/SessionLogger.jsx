@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { DEFAULT_REST } from '../lib/defaults';
 import { useNow, useRestTimer, useWakeLock } from '../lib/hooks';
-import { linkSuperset, moveItem, removeItem, replaceItem, supersetOf, supersetPairs, unlinkSuperset } from '../lib/session';
+import { linkSuperset, moveItem, removeItem, replaceItem, startFromSets, supersetOf, supersetPairs, unlinkSuperset } from '../lib/session';
 import { useStore } from '../lib/store';
 import { sessionProgress } from '../lib/stats';
 import { buildSummary } from '../lib/summary';
@@ -143,7 +143,7 @@ export default function SessionLogger({ onExit, onFinished }) {
 
   const finish = () => {
     if (!confirming) return setConfirming(true);
-    const summary = any ? buildSummary(draft, state.sessions, Date.now(), (id) => loadFactor(byId[id])) : null; // avant d'archiver : comparaison avec l'historique d'avant
+    const summary = any ? buildSummary(startFromSets(draft), state.sessions, Date.now(), (id) => loadFactor(byId[id])) : null; // avant d'archiver : comparaison avec l'historique d'avant
     timer.stop();
     finishSession();
     onFinished({ summary, sessionId: draft.id });
@@ -230,7 +230,10 @@ export default function SessionLogger({ onExit, onFinished }) {
             superset={ssLabel[i]}
             onChart={() => setChartOf(it.exerciseId)}
             onAdd={(set) => {
-              patchSets(i, (s) => [...s, { ...set, at: Date.now() }]);
+              const now = Date.now();
+              // Séance ouverte depuis longtemps sans aucune série (ouverte « pour regarder ») : elle commence maintenant
+              if (!any && now - draft.startedAt > 30 * 60e3) setDraft((d) => ({ ...d, startedAt: now }));
+              patchSets(i, (s) => [...s, { ...set, at: now }]);
               afterSet(i, set);
             }}
             onUpdate={(k, set) => patchSets(i, (s) => s.map((x, j) => (j === k ? { ...x, ...set } : x)))}

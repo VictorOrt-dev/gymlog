@@ -137,3 +137,17 @@ export function renameTemplateIn(state, templateId, rawName) {
     drafts,
   };
 }
+
+const STALE_START = 3 * 3600e3;
+
+/**
+ * Une séance commence à la 1re série, pas quand on l'a ouverte « pour regarder » : si la 1re série arrive plus de 3 h
+ * après l'ouverture (séance ouverte lundi, faite mardi), le début est recalé 5 min avant la 1re série.
+ * Bon jour dans l'historique et le calendrier, durée réelle, calories justes.
+ */
+export function startFromSets(session) {
+  const ats = session.items.flatMap((it) => it.sets.map((s) => s.at)).filter((t) => Number.isFinite(t));
+  if (!ats.length) return session;
+  const first = Math.min(...ats);
+  return first - session.startedAt > STALE_START ? { ...session, startedAt: first - 5 * 60e3 } : session;
+}

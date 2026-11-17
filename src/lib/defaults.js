@@ -1,9 +1,10 @@
+import { startFromSets } from './session';
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
 export const slug = (s) =>
   s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
-export const VERSION = 6;
+export const VERSION = 7;
 export const DEFAULT_REST = 120;
 export const CUSTOM_GROUP = 'Mes exercices';
 
@@ -312,6 +313,13 @@ export function migrate(input) {
     // v5 → v6 : option « 2 haltères » (tonnage × 2), cochée sur les exercices de la bibliothèque faits avec deux haltères.
     // Rien d'autre ne change ; les exercices perso restent tels quels (à cocher soi-même).
     s = { ...s, v: 6, exercises: s.exercises.map((e) => (e.pair == null && PAIR_DEFAULT.has(e.id) ? { ...e, pair: true } : e)) };
+  }
+  if (s.v < 7) {
+    // v6 → v7 : réparation des séances ouvertes un jour et faites plus tard (datées du jour d'ouverture, durée de 24 h+).
+    // Seul leur début est recalé sur la 1re série ; toutes les autres séances restent identiques (même objet).
+    const sessions = s.sessions.map(startFromSets).sort((a, b) => a.startedAt - b.startedAt);
+    const drafts = Object.fromEntries(Object.entries(s.drafts ?? {}).map(([pid, d]) => [pid, d ? startFromSets(d) : d]));
+    s = { ...s, v: 7, sessions, drafts };
   }
   // Données existantes sans le drapeau : l'app était déjà utilisée, pas d'écran de bienvenue.
   if (s.onboarded == null) s = { ...s, onboarded: true };

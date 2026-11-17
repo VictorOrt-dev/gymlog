@@ -37,7 +37,7 @@ function useWeek(sessions) {
  * De haut en bas, par fréquence d'usage : la séance du jour → la semaine → mes séances.
  */
 export default function Home({ onOpenSession }) {
-  const { state, startSession, setPlanDay, saveTemplate, deleteTemplate, restoreTemplate, addTemplateFromModel, exportData } = useStore();
+  const { state, startSession, setDraft, setPlanDay, saveTemplate, deleteTemplate, restoreTemplate, addTemplateFromModel, exportData } = useStore();
   const notify = useToast();
   const pid = state.profileId;
   const profile = state.profiles.find((p) => p.id === pid) ?? state.profiles[0];
@@ -57,6 +57,7 @@ export default function Home({ onOpenSession }) {
   const [freshId, setFreshId] = useState(null); // séance vide qu'on vient de créer : le nom est prêt à être tapé
 
   const today = week.find((d) => d.isToday);
+  const draftSets = draft ? draft.items.reduce((n, it) => n + it.sets.filter((x) => !x.wu).length, 0) : 0;
   const deloadActive = (state.deload?.[pid] ?? 0) > Date.now();
   const todayTpl = tplById[plan[today.i]];
   const doneCount = week.filter((d) => d.done).length;
@@ -109,10 +110,23 @@ export default function Home({ onOpenSession }) {
             <p className="text-[13px] font-semibold text-pink">En cours</p>
             <p className="mt-1 truncate text-[28px] font-bold leading-tight tracking-tight">{draft.name}</p>
             <p className="mt-1 text-[15px] text-muted">
-              {draft.items.reduce((n, it) => n + it.sets.filter((x) => !x.wu).length, 0)} séries · depuis{' '}
+              {draftSets} série{draftSets > 1 ? 's' : ''} · ouverte {ago(draft.startedAt) === "aujourd'hui" ? '' : `${ago(draft.startedAt)} `}à{' '}
               {new Date(draft.startedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
             </p>
             <PrimaryButton onClick={onOpenSession}>Reprendre</PrimaryButton>
+            {/* Ouverte par erreur (pour regarder) et rien de fait : on la ferme d'un tap, annulable */}
+            {draftSets === 0 && !draft.items.some((it) => it.sets.length) && (
+              <button
+                onClick={() => {
+                  const before = draft;
+                  setDraft(() => null);
+                  notify('Séance fermée', () => setDraft(() => before));
+                }}
+                className="mt-1 h-11 w-full text-[17px] text-pink active:opacity-50"
+              >
+                Abandonner
+              </button>
+            )}
           </>
         ) : todayTpl && !today.done ? (
           <>

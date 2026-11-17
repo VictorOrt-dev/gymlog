@@ -265,3 +265,54 @@ test('depuis une séance terminée : toucher le nom d’un exercice ouvre ses r�
   await expect.poll(tonnage).toBe(before + 40 * 8); // recalculé aussitôt, séance passée comprise
   await expect(page.getByRole('button', { name: /^Réglages de Développé militaire/ })).toContainText('2 haltères');
 });
+
+test.describe('séance ouverte « pour regarder »', () => {
+  test.beforeEach(async ({ page }) => seed(page));
+
+  test('ouverte hier sans rien faire : « Abandonner » sur l’accueil, annulable', async ({ page }) => {
+    await page.evaluate(() => {
+      const d = JSON.parse(localStorage.getItem('gymlog:data'));
+      d.drafts = { p1: { id: 'dx', profileId: 'p1', templateId: 'tl', name: 'Pull', startedAt: Date.now() - 26 * 3600e3, form: 'ok', open: -1, items: [{ exerciseId: 'tractions', sets: [] }] } };
+      localStorage.setItem('gymlog:data', JSON.stringify(d));
+    });
+    await page.reload();
+    await page.getByRole('button', { name: /Retour à l'accueil/ }).click();
+    await expect(page.getByText(/ouverte hier à/)).toBeVisible();
+    await page.getByRole('button', { name: 'Abandonner' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Séance fermée' })).toBeVisible();
+    await expect(page.getByText('En cours')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Annuler' }).click();
+    await expect(page.getByText('En cours')).toBeVisible();
+  });
+
+  test('ouverte hier, faite aujourd’hui : rangée aujourd’hui avec sa vraie durée', async ({ page }) => {
+    await page.evaluate(() => {
+      const d = JSON.parse(localStorage.getItem('gymlog:data'));
+      d.drafts = { p1: { id: 'dy', profileId: 'p1', templateId: 'tp', name: 'Push', startedAt: Date.now() - 26 * 3600e3, form: 'ok', open: 0, items: [{ exerciseId: 'developpe-couche', sets: [] }] } };
+      localStorage.setItem('gymlog:data', JSON.stringify(d));
+    });
+    await page.reload();
+    await tap(page, 'button:has-text("Valider la série 1")');
+    await expect(page.locator('header')).toContainText(/0:0\d ·/); // le chrono de séance repart de la 1re série
+    await finishSession(page);
+    const summary = page.getByRole('dialog', { name: 'Récapitulatif de la séance' });
+    await expect(summary.getByRole('radio', { name: 'Aujourd’hui' })).toHaveAttribute('aria-checked', 'true');
+    await expect(summary).toContainText(/[^0-9][0-9] minDurée/); // quelques minutes, pas 26 h
+  });
+});
+
+test('réparation à la mise à jour : une séance ouverte la veille et faite aujourd’hui change de jour', async ({ page }) => {
+  await seed(page);
+  await page.evaluate(() => {
+    const d = JSON.parse(localStorage.getItem('gymlog:data'));
+    d.v = 6;
+    localStorage.setItem('gymlog:data', JSON.stringify(d));
+    const s = JSON.parse(localStorage.getItem('gymlog:sessions'));
+    const now = Date.now();
+    s.push({ id: 'bad', profileId: 'p1', templateId: 'tl', name: 'Dos', startedAt: now - 24 * 3600e3, endedAt: now, items: [{ exerciseId: 'tractions', sets: [{ w: 0, r: 10, rir: 1, at: now - 50 * 60e3 }, { w: 0, r: 9, rir: 0, at: now - 5 * 60e3 }] }] });
+    localStorage.setItem('gymlog:sessions', JSON.stringify(s));
+  });
+  await page.reload();
+  const today = page.getByRole('button', { name: new RegExp(`^${['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'][(new Date().getDay() + 6) % 7]} : fait \\(Dos\\)`) });
+  await expect(today).toBeVisible();
+});

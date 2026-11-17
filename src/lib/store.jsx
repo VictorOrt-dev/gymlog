@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { serializeBackup } from './backup';
-import { applySupersets, renameTemplateIn } from './session';
+import { applySupersets, renameTemplateIn, startFromSets } from './session';
 import { norm } from './training';
 import { CUSTOM_GROUP, DEFAULT_REST, VERSION, initialState, migrate, planFromChoice, templateFromModel, uid } from './defaults';
 
@@ -100,7 +100,7 @@ export function StoreProvider({ children }) {
           const drafts = { ...s.drafts };
           delete drafts[s.profileId];
           const items = d.items.filter((it) => it.sets.length);
-          const sessions = items.length ? [...s.sessions, { ...d, items, endedAt: Date.now() }] : s.sessions;
+          const sessions = items.length ? [...s.sessions, startFromSets({ ...d, items, endedAt: Date.now() })].sort((a, b) => a.startedAt - b.startedAt) : s.sessions;
           return { ...s, drafts, sessions };
         }),
 
